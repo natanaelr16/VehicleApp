@@ -12,7 +12,6 @@ import { useNavigation } from '@react-navigation/native';
 import { useAppStore } from '../stores/appStore';
 import { Picker } from '@react-native-picker/picker';
 import VehicleHistoryForm from '../components/VehicleHistoryForm';
-import PlacaSearch from '../components/PlacaSearch';
 
 
 const InspectionFormScreen: React.FC = () => {
@@ -170,13 +169,7 @@ const InspectionFormScreen: React.FC = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📋 Información del Vehículo</Text>
             
-            {/* Componente de búsqueda por placa */}
-            <PlacaSearch 
-              onSuccess={() => {
-                // Opcional: mostrar mensaje de éxito o navegar a otra pestaña
-                console.log('Información del vehículo cargada exitosamente');
-              }}
-            />
+
             
             <View style={styles.inputGroup}>
               <Text style={styles.label}>🚗 Placa</Text>

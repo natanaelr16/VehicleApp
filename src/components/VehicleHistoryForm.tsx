@@ -127,14 +127,6 @@ const VehicleHistoryForm: React.FC = () => {
 
   const years = Array.from({ length: 10 }, (_, i) => (new Date().getFullYear() + i).toString());
 
-  const colombianCities = [
-    'Bogotá', 'Medellín', 'Cali', 'Barranquilla', 'Cartagena', 'Cúcuta',
-    'Bucaramanga', 'Pereira', 'Santa Marta', 'Ibagué', 'Pasto', 'Manizales',
-    'Neiva', 'Villavicencio', 'Montería', 'Valledupar', 'Popayán', 'Tunja',
-    'Armenia', 'Sincelejo', 'Florencia', 'Riohacha', 'Quibdó', 'Mocoa',
-    'Leticia', 'San Andrés', 'Arauca', 'Yopal', 'Mitu', 'Puerto Carreño'
-  ];
-
   return (
     <Animated.View 
       style={[
@@ -540,10 +532,11 @@ const styles = StyleSheet.create({
     borderColor: '#e8e8e8',
     borderRadius: 10,
     marginTop: 2,
-    height: 36,
-    minHeight: 36,
-    maxHeight: 38,
+    height: 50,
+    minHeight: 50,
+    maxHeight: 52,
     justifyContent: 'center',
+    paddingHorizontal: 12,
   },
   dateContainer: {
     flexDirection: 'row',
@@ -558,16 +551,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 100,
   },
-  selectedValue: {
-    fontSize: 14,
-    color: '#555',
-    marginTop: 5,
-    fontStyle: 'italic',
-    backgroundColor: '#f0f0f0',
-    padding: 8,
-    borderRadius: 6,
-    borderLeftWidth: 3,
-    borderLeftColor: '#FF0000',
+  suggestionsContainer: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+    borderRadius: 8,
+    marginTop: 4,
+    maxHeight: 150,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  suggestionsList: {
+    maxHeight: 150,
+  },
+  suggestionItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  suggestionText: {
+    fontSize: 16,
+    color: '#2c3e50',
   },
 });
 
