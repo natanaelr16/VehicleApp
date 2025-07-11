@@ -1,0 +1,269 @@
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { 
+  InspectionForm, 
+  VehicleInfo, 
+  VehicleHistory,
+  InspectionItem, 
+  PhotoData, 
+  AppSettings,
+  ReportTemplate,
+  BodyInspection
+} from '../types';
+
+interface AppState {
+  // Estado actual
+  currentInspection: InspectionForm | null;
+  currentPhotos: PhotoData[];
+  settings: AppSettings;
+  savedInspections: InspectionForm[];
+  templates: ReportTemplate[];
+  
+  // Acciones
+  setCurrentInspection: (inspection: InspectionForm | null) => void;
+  updateVehicleInfo: (vehicleInfo: Partial<VehicleInfo>) => void;
+  updateVehicleHistory: (vehicleHistory: Partial<VehicleHistory>) => void;
+  addInspectionItem: (item: InspectionItem) => void;
+  updateInspectionItem: (itemId: string, updates: Partial<InspectionItem>) => void;
+  removeInspectionItem: (itemId: string) => void;
+  addPhoto: (photo: PhotoData) => void;
+  removePhoto: (photoId: string) => void;
+  updateBodyInspection: (bodyInspection: BodyInspection) => void;
+  saveInspection: () => void;
+  loadInspection: (inspectionId: string) => void;
+  deleteInspection: (inspectionId: string) => void;
+  updateSettings: (settings: Partial<AppSettings>) => void;
+  addTemplate: (template: ReportTemplate) => void;
+  removeTemplate: (templateId: string) => void;
+  clearCurrentInspection: () => void;
+}
+
+const defaultSettings: AppSettings = {
+  companyName: 'Mi Empresa',
+  inspectorName: '',
+  defaultNotes: [
+    'En buen estado',
+    'Requiere mantenimiento',
+    'Necesita reparación',
+    'No aplica'
+  ],
+  autoSave: true,
+  photoQuality: 'medium'
+};
+
+const defaultTemplate: ReportTemplate = {
+  id: 'default',
+  name: 'Inspección General',
+  isDefault: true,
+  items: [
+    { id: '1', category: 'Motor', item: 'Aceite del motor', status: 'good' },
+    { id: '2', category: 'Motor', item: 'Filtro de aire', status: 'good' },
+    { id: '3', category: 'Motor', item: 'Batería', status: 'good' },
+    { id: '4', category: 'Frenos', item: 'Pastillas de freno', status: 'good' },
+    { id: '5', category: 'Frenos', item: 'Líquido de frenos', status: 'good' },
+    { id: '6', category: 'Suspensión', item: 'Amortiguadores', status: 'good' },
+    { id: '7', category: 'Suspensión', item: 'Resortes', status: 'good' },
+    { id: '8', category: 'Neumáticos', item: 'Presión de neumáticos', status: 'good' },
+    { id: '9', category: 'Neumáticos', item: 'Desgaste de neumáticos', status: 'good' },
+    { id: '10', category: 'Iluminación', item: 'Luces delanteras', status: 'good' },
+    { id: '11', category: 'Iluminación', item: 'Luces traseras', status: 'good' },
+    { id: '12', category: 'Iluminación', item: 'Direccionales', status: 'good' },
+  ]
+};
+
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => ({
+      // Estado inicial
+      currentInspection: null,
+      currentPhotos: [],
+      settings: defaultSettings,
+      savedInspections: [],
+      templates: [defaultTemplate],
+
+      // Acciones
+      setCurrentInspection: (inspection) => set({ currentInspection: inspection }),
+      
+      updateVehicleInfo: (vehicleInfo) => {
+        const { currentInspection } = get();
+        if (currentInspection) {
+          set({
+            currentInspection: {
+              ...currentInspection,
+              vehicleInfo: { ...currentInspection.vehicleInfo, ...vehicleInfo }
+            }
+          });
+        }
+      },
+
+      updateVehicleHistory: (vehicleHistory) => {
+        const { currentInspection } = get();
+        if (currentInspection) {
+          console.log('AppStore - updateVehicleHistory called with:', vehicleHistory);
+          
+          set({
+            currentInspection: {
+              ...currentInspection,
+              vehicleHistory: {
+                ...currentInspection.vehicleHistory,
+                ...vehicleHistory
+              } as VehicleHistory
+            }
+          });
+          console.log('AppStore - vehicleHistory updated successfully');
+        }
+      },
+
+      addInspectionItem: (item) => {
+        const { currentInspection } = get();
+        if (currentInspection) {
+          set({
+            currentInspection: {
+              ...currentInspection,
+              items: [item, ...currentInspection.items]
+            }
+          });
+        }
+      },
+
+      updateInspectionItem: (itemId, updates) => {
+        const { currentInspection } = get();
+        if (currentInspection) {
+          set({
+            currentInspection: {
+              ...currentInspection,
+              items: currentInspection.items.map(item =>
+                item.id === itemId ? { ...item, ...updates } : item
+              )
+            }
+          });
+        }
+      },
+
+      removeInspectionItem: (itemId) => {
+        const { currentInspection } = get();
+        if (currentInspection) {
+          set({
+            currentInspection: {
+              ...currentInspection,
+              items: currentInspection.items.filter(item => item.id !== itemId)
+            }
+          });
+        }
+      },
+
+      addPhoto: (photo) => {
+        set({ currentPhotos: [...get().currentPhotos, photo] });
+      },
+
+      removePhoto: (photoId) => {
+        set({ 
+          currentPhotos: get().currentPhotos.filter(photo => photo.id !== photoId) 
+        });
+      },
+
+      updateBodyInspection: (bodyInspection) => {
+        console.log('AppStore - updateBodyInspection called with:', bodyInspection);
+        const { currentInspection } = get();
+        if (currentInspection) {
+          set({
+            currentInspection: {
+              ...currentInspection,
+              bodyInspection
+            }
+          });
+          console.log('AppStore - bodyInspection updated successfully');
+        } else {
+          console.log('AppStore - No currentInspection to update');
+        }
+      },
+
+      saveInspection: () => {
+        const { currentInspection, savedInspections } = get();
+        if (currentInspection) {
+          const existingIndex = savedInspections.findIndex(
+            inspection => inspection.id === currentInspection.id
+          );
+          
+          if (existingIndex >= 0) {
+            // Actualizar inspección existente
+            const updatedInspections = [...savedInspections];
+            updatedInspections[existingIndex] = currentInspection;
+            set({ savedInspections: updatedInspections });
+          } else {
+            // Agregar nueva inspección
+            set({ 
+              savedInspections: [...savedInspections, currentInspection] 
+            });
+          }
+        }
+      },
+
+      loadInspection: (inspectionId) => {
+        const { savedInspections } = get();
+        const inspection = savedInspections.find(
+          inspection => inspection.id === inspectionId
+        );
+        if (inspection) {
+          // Convertir la fecha de vuelta a objeto Date si es string
+          const inspectionWithDate = {
+            ...inspection,
+            inspectionDate: inspection.inspectionDate instanceof Date 
+              ? inspection.inspectionDate 
+              : new Date(inspection.inspectionDate)
+          };
+          set({ currentInspection: inspectionWithDate });
+        }
+      },
+
+      deleteInspection: (inspectionId) => {
+        set({
+          savedInspections: get().savedInspections.filter(
+            inspection => inspection.id !== inspectionId
+          )
+        });
+      },
+
+      updateSettings: (settings) => {
+        set({ settings: { ...get().settings, ...settings } });
+      },
+
+      addTemplate: (template) => {
+        set({ templates: [...get().templates, template] });
+      },
+
+      removeTemplate: (templateId) => {
+        set({
+          templates: get().templates.filter(template => template.id !== templateId)
+        });
+      },
+
+      clearCurrentInspection: () => {
+        set({ currentInspection: null, currentPhotos: [] });
+      },
+    }),
+    {
+      name: 'vehicle-inspection-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        settings: state.settings,
+        savedInspections: state.savedInspections,
+        templates: state.templates,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // Convertir fechas de vuelta a objetos Date después de cargar desde storage
+          if (state.savedInspections) {
+            state.savedInspections = state.savedInspections.map(inspection => ({
+              ...inspection,
+              inspectionDate: inspection.inspectionDate instanceof Date 
+                ? inspection.inspectionDate 
+                : new Date(inspection.inspectionDate)
+            }));
+          }
+        }
+      },
+    }
+  )
+); 

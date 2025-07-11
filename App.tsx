@@ -1,28 +1,26 @@
 /**
- * Sample React Native App
- * https://github.com/facebook/react-native
+ * Vehicle Inspection App
+ * React Native App for vehicle inspection management
  *
  * @format
  */
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import React from 'react';
+import { StatusBar, useColorScheme } from 'react-native';
+import AppNavigator from './src/components/AppNavigator';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <NewAppScreen templateFileName="App.tsx" />
-    </View>
+    <>
+      <StatusBar 
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'} 
+        backgroundColor="#2196F3"
+      />
+      <AppNavigator />
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
 
 export default App;
