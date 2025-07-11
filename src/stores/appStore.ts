@@ -9,7 +9,8 @@ import {
   PhotoData, 
   AppSettings,
   ReportTemplate,
-  BodyInspection
+  BodyInspection,
+  TireInspection
 } from '../types';
 
 interface AppState {
@@ -30,6 +31,7 @@ interface AppState {
   addPhoto: (photo: PhotoData) => void;
   removePhoto: (photoId: string) => void;
   updateBodyInspection: (bodyInspection: BodyInspection) => void;
+  updateTireInspection: (tireInspection: TireInspection) => void;
   saveInspection: () => void;
   loadInspection: (inspectionId: string) => void;
   deleteInspection: (inspectionId: string) => void;
@@ -37,6 +39,11 @@ interface AppState {
   addTemplate: (template: ReportTemplate) => void;
   removeTemplate: (templateId: string) => void;
   clearCurrentInspection: () => void;
+  updateFechaIngreso: (fechaIngreso: string) => void;
+  updateHoraIngreso: (horaIngreso: string) => void;
+  updateSugerenciasDiagnostico: (sugerencias: string[]) => void;
+  updatePrecioSugerido: (precio: string) => void;
+  updateResultadoInspeccion: (resultado: 'approved' | 'rejected') => void;
 }
 
 const defaultSettings: AppSettings = {
@@ -179,6 +186,22 @@ export const useAppStore = create<AppState>()(
         }
       },
 
+      updateTireInspection: (tireInspection) => {
+        console.log('AppStore - updateTireInspection called with:', tireInspection);
+        const { currentInspection } = get();
+        if (currentInspection) {
+          set({
+            currentInspection: {
+              ...currentInspection,
+              tireInspection
+            }
+          });
+          console.log('AppStore - tireInspection updated successfully');
+        } else {
+          console.log('AppStore - No currentInspection to update');
+        }
+      },
+
       saveInspection: () => {
         const { currentInspection, savedInspections } = get();
         if (currentInspection) {
@@ -241,6 +264,62 @@ export const useAppStore = create<AppState>()(
 
       clearCurrentInspection: () => {
         set({ currentInspection: null, currentPhotos: [] });
+      },
+
+      updateFechaIngreso: (fechaIngreso) => {
+        const { currentInspection } = get();
+        if (currentInspection) {
+          set({
+            currentInspection: {
+              ...currentInspection,
+              fechaIngreso
+            }
+          });
+        }
+      },
+      updateHoraIngreso: (horaIngreso) => {
+        const { currentInspection } = get();
+        if (currentInspection) {
+          set({
+            currentInspection: {
+              ...currentInspection,
+              horaIngreso
+            }
+          });
+        }
+      },
+      updateSugerenciasDiagnostico: (sugerencias) => {
+        const { currentInspection } = get();
+        if (currentInspection) {
+          set({
+            currentInspection: {
+              ...currentInspection,
+              sugerenciasDiagnostico: sugerencias
+            }
+          });
+        }
+      },
+      updatePrecioSugerido: (precio) => {
+        const { currentInspection } = get();
+        if (currentInspection) {
+          set({
+            currentInspection: {
+              ...currentInspection,
+              precioSugerido: precio
+            }
+          });
+        }
+      },
+      updateResultadoInspeccion: (resultado) => {
+        const { currentInspection } = get();
+        if (currentInspection) {
+          set({
+            currentInspection: {
+              ...currentInspection,
+              resultadoInspeccion: resultado
+            }
+          });
+        }
       },
     }),
     {

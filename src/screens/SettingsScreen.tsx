@@ -9,17 +9,18 @@ import {
   Alert,
   Switch,
   Image,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAppStore } from '../stores/appStore';
+import { launchImageLibrary, launchCamera, ImagePickerResponse, MediaType, PhotoQuality } from 'react-native-image-picker';
 
 const SettingsScreen: React.FC = () => {
   const navigation = useNavigation();
   const { settings, updateSettings } = useAppStore();
   
   const [localSettings, setLocalSettings] = useState(settings);
-  const [showLogoPicker, setShowLogoPicker] = useState(false);
-  const [showWatermarkPicker, setShowWatermarkPicker] = useState(false);
 
   const handleSave = () => {
     updateSettings(localSettings);
@@ -30,14 +31,108 @@ const SettingsScreen: React.FC = () => {
     setLocalSettings(prev => ({ ...prev, [key]: value }));
   };
 
+  const requestGalleryPermission = async (): Promise<boolean> => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+          {
+            title: 'Permiso de Galería',
+            message: 'Esta app necesita acceso a la galería para seleccionar logos y marcas de agua.',
+            buttonNeutral: 'Preguntar después',
+            buttonNegative: 'Cancelar',
+            buttonPositive: 'OK',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn('Error solicitando permisos:', err);
+        return false;
+      }
+    }
+    return true; // En iOS, los permisos se solicitan automáticamente
+  };
+
   const selectLogo = () => {
-    // TODO: Implementar selección de imagen
-    Alert.alert('Seleccionar Logo', 'Funcionalidad de selección de imagen próximamente disponible.');
+    console.log('Iniciando selección de logo...');
+    
+    // Opciones más simples para probar
+    const options = {
+      mediaType: 'photo' as MediaType,
+      includeBase64: false,
+      maxHeight: 2000,
+      maxWidth: 2000,
+    };
+
+    console.log('Lanzando galería con opciones:', options);
+
+    launchImageLibrary(options, (response: ImagePickerResponse) => {
+      console.log('Respuesta completa de selección de logo:', JSON.stringify(response, null, 2));
+      
+      if (response.didCancel) {
+        console.log('Usuario canceló la selección de logo');
+        Alert.alert('Cancelado', 'No se seleccionó ninguna imagen.');
+      } else if (response.errorCode) {
+        console.error('Error en selección de logo:', response.errorMessage);
+        Alert.alert('Error', `Error al seleccionar imagen: ${response.errorMessage}`);
+      } else if (response.assets && response.assets.length > 0) {
+        const asset = response.assets[0];
+        console.log('Asset seleccionado:', JSON.stringify(asset, null, 2));
+        
+        if (asset.uri) {
+          console.log('URI de la imagen:', asset.uri);
+          updateLocalSetting('companyLogo', asset.uri);
+          Alert.alert('✅ Logo Actualizado', 'El logo de la empresa ha sido actualizado correctamente.');
+        } else {
+          console.error('No se encontró URI en el asset');
+          Alert.alert('Error', 'No se pudo obtener la URI de la imagen seleccionada.');
+        }
+      } else {
+        console.error('No se encontraron assets en la respuesta');
+        Alert.alert('Error', 'No se seleccionó ninguna imagen válida.');
+      }
+    });
   };
 
   const selectWatermark = () => {
-    // TODO: Implementar selección de imagen
-    Alert.alert('Seleccionar Marca de Agua', 'Funcionalidad de selección de imagen próximamente disponible.');
+    console.log('Iniciando selección de marca de agua...');
+    
+    // Opciones más simples para probar
+    const options = {
+      mediaType: 'photo' as MediaType,
+      includeBase64: false,
+      maxHeight: 2000,
+      maxWidth: 2000,
+    };
+
+    console.log('Lanzando galería para marca de agua con opciones:', options);
+
+    launchImageLibrary(options, (response: ImagePickerResponse) => {
+      console.log('Respuesta completa de selección de marca de agua:', JSON.stringify(response, null, 2));
+      
+      if (response.didCancel) {
+        console.log('Usuario canceló la selección de marca de agua');
+        Alert.alert('Cancelado', 'No se seleccionó ninguna imagen.');
+      } else if (response.errorCode) {
+        console.error('Error en selección de marca de agua:', response.errorMessage);
+        Alert.alert('Error', `Error al seleccionar imagen: ${response.errorMessage}`);
+      } else if (response.assets && response.assets.length > 0) {
+        const asset = response.assets[0];
+        console.log('Asset seleccionado:', JSON.stringify(asset, null, 2));
+        
+        if (asset.uri) {
+          console.log('URI de la imagen:', asset.uri);
+          updateLocalSetting('watermarkLogo', asset.uri);
+          Alert.alert('✅ Marca de Agua Actualizada', 'La marca de agua ha sido actualizada correctamente.');
+        } else {
+          console.error('No se encontró URI en el asset');
+          Alert.alert('Error', 'No se pudo obtener la URI de la imagen seleccionada.');
+        }
+      } else {
+        console.error('No se encontraron assets en la respuesta');
+        Alert.alert('Error', 'No se seleccionó ninguna imagen válida.');
+      }
+    });
   };
 
   return (
@@ -106,37 +201,70 @@ const SettingsScreen: React.FC = () => {
           
           <View style={styles.logoSection}>
             <Text style={styles.label}>Logo de la Empresa</Text>
-            <TouchableOpacity style={styles.logoButton} onPress={selectLogo}>
-              {localSettings.companyLogo ? (
-                <Image source={{ uri: localSettings.companyLogo }} style={styles.logoPreview} />
-              ) : (
-                <View style={styles.logoPlaceholder}>
-                  <Text style={styles.logoPlaceholderText}>+ Seleccionar Logo</Text>
-                </View>
+            <View style={styles.logoContainer}>
+              <TouchableOpacity style={styles.logoButton} onPress={selectLogo}>
+                {localSettings.companyLogo ? (
+                  <View style={styles.logoPreviewContainer}>
+                    <Image source={{ uri: localSettings.companyLogo }} style={styles.logoPreview} />
+                    <Text style={styles.logoPreviewText}>Logo actual</Text>
+                  </View>
+                ) : (
+                  <View style={styles.logoPlaceholder}>
+                    <Text style={styles.logoPlaceholderText}>+ Seleccionar Logo</Text>
+                    <Text style={styles.logoPlaceholderSubtext}>PNG, JPG hasta 2MB</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              {localSettings.companyLogo && (
+                <TouchableOpacity 
+                  style={styles.removeButton}
+                  onPress={() => updateLocalSetting('companyLogo', '')}
+                >
+                  <Text style={styles.removeButtonText}>🗑️ Eliminar</Text>
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
-            <Text style={styles.helpText}>Este logo aparecerá en el encabezado de los reportes</Text>
+            </View>
+            <Text style={styles.helpText}>
+              📱 Este logo aparecerá en la página principal de la app{'\n'}
+              📄 También se incluirá en los reportes PDF{'\n'}
+              💡 Toca "Seleccionar Logo" para elegir una imagen de tu galería
+            </Text>
+            
+            {/* Eliminar botones de prueba para verificar funcionalidad */}
           </View>
 
           <View style={styles.logoSection}>
             <Text style={styles.label}>Marca de Agua</Text>
-            <TouchableOpacity style={styles.logoButton} onPress={selectWatermark}>
-              {localSettings.watermarkLogo ? (
-                <Image source={{ uri: localSettings.watermarkLogo }} style={styles.logoPreview} />
-              ) : (
-                <View style={styles.logoPlaceholder}>
-                  <Text style={styles.logoPlaceholderText}>+ Seleccionar Marca de Agua</Text>
-                </View>
+            <View style={styles.logoContainer}>
+              <TouchableOpacity style={styles.logoButton} onPress={selectWatermark}>
+                {localSettings.watermarkLogo ? (
+                  <View style={styles.logoPreviewContainer}>
+                    <Image source={{ uri: localSettings.watermarkLogo }} style={styles.logoPreview} />
+                    <Text style={styles.logoPreviewText}>Marca de agua actual</Text>
+                  </View>
+                ) : (
+                  <View style={styles.logoPlaceholder}>
+                    <Text style={styles.logoPlaceholderText}>+ Seleccionar Marca de Agua</Text>
+                    <Text style={styles.logoPlaceholderSubtext}>PNG, JPG hasta 3MB</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              {localSettings.watermarkLogo && (
+                <TouchableOpacity 
+                  style={styles.removeButton}
+                  onPress={() => updateLocalSetting('watermarkLogo', '')}
+                >
+                  <Text style={styles.removeButtonText}>🗑️ Eliminar</Text>
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
-            <Text style={styles.helpText}>Esta imagen aparecerá como marca de agua en los PDFs</Text>
+            </View>
+            <Text style={styles.helpText}>Esta imagen aparecerá como marca de agua en el centro de cada página del PDF</Text>
           </View>
         </View>
 
         {/* Inspector */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>👤 Inspector</Text>
-          
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Nombre del Inspector</Text>
             <TextInput
@@ -148,137 +276,28 @@ const SettingsScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Configuración de Reportes */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📋 Configuración de Reportes</Text>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Formato de Reporte</Text>
-            <View style={styles.radioGroup}>
-              <TouchableOpacity
-                style={[
-                  styles.radioButton,
-                  localSettings.reportTemplate === 'colombia' && styles.radioButtonActive
-                ]}
-                onPress={() => updateLocalSetting('reportTemplate', 'colombia')}
-              >
-                <Text style={[
-                  styles.radioButtonText,
-                  localSettings.reportTemplate === 'colombia' && styles.radioButtonTextActive
-                ]}>
-                  🇨🇴 Formato Colombia
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.radioButton,
-                  localSettings.reportTemplate === 'general' && styles.radioButtonActive
-                ]}
-                onPress={() => updateLocalSetting('reportTemplate', 'general')}
-              >
-                <Text style={[
-                  styles.radioButtonText,
-                  localSettings.reportTemplate === 'general' && styles.radioButtonTextActive
-                ]}>
-                  🌍 Formato General
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.switchGroup}>
-            <Text style={styles.label}>Guardado Automático</Text>
-            <Switch
-              value={localSettings.autoSave}
-              onValueChange={(value) => updateLocalSetting('autoSave', value)}
-              trackColor={{ false: '#767577', true: '#FF0000' }}
-              thumbColor={localSettings.autoSave ? '#FFFFFF' : '#f4f3f4'}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Calidad de Fotos</Text>
-            <View style={styles.radioGroup}>
-              <TouchableOpacity
-                style={[
-                  styles.radioButton,
-                  localSettings.photoQuality === 'low' && styles.radioButtonActive
-                ]}
-                onPress={() => updateLocalSetting('photoQuality', 'low')}
-              >
-                <Text style={[
-                  styles.radioButtonText,
-                  localSettings.photoQuality === 'low' && styles.radioButtonTextActive
-                ]}>
-                  Baja
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.radioButton,
-                  localSettings.photoQuality === 'medium' && styles.radioButtonActive
-                ]}
-                onPress={() => updateLocalSetting('photoQuality', 'medium')}
-              >
-                <Text style={[
-                  styles.radioButtonText,
-                  localSettings.photoQuality === 'medium' && styles.radioButtonTextActive
-                ]}>
-                  Media
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.radioButton,
-                  localSettings.photoQuality === 'high' && styles.radioButtonActive
-                ]}
-                onPress={() => updateLocalSetting('photoQuality', 'high')}
-              >
-                <Text style={[
-                  styles.radioButtonText,
-                  localSettings.photoQuality === 'high' && styles.radioButtonTextActive
-                ]}>
-                  Alta
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {/* Notas Predeterminadas */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📝 Notas Predeterminadas</Text>
-          <Text style={styles.helpText}>
-            Estas notas estarán disponibles como opciones rápidas durante la inspección
+        {/* Bloque final: logo, leyenda, versión, marca y botón guardar */}
+        <View style={{ alignItems: 'center', marginTop: 48, marginBottom: 32 }}>
+          <Image source={require('../../assets/innovare_logo.png')} style={{ width: 200, height: 100, marginBottom: 10, resizeMode: 'contain' }} />
+          <Text style={{ color: '#bbb', fontSize: 14, marginBottom: 2, marginTop: 2, textAlign: 'center' }}>
+            App de inspección vehicular profesional
           </Text>
-          
-          {localSettings.defaultNotes.map((note, index) => (
-            <View key={index} style={styles.inputGroup}>
-              <Text style={styles.label}>Nota {index + 1}</Text>
-              <TextInput
-                style={styles.input}
-                value={note}
-                onChangeText={(text) => {
-                  const newNotes = [...localSettings.defaultNotes];
-                  newNotes[index] = text;
-                  updateLocalSetting('defaultNotes', newNotes);
-                }}
-                placeholder="Ej: En buen estado"
-              />
-            </View>
-          ))}
+          <Text style={{ color: '#bbb', fontSize: 13, marginBottom: 8, textAlign: 'center' }}>
+            v1.0.0
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+            <Text style={{ fontWeight: 'bold', color: '#888', fontSize: 15, marginRight: 8 }}>
+              Innovare by NRE
+            </Text>
+            <Text style={{ color: '#bbb', fontSize: 13 }}>
+              © 2025
+            </Text>
+          </View>
+          <TouchableOpacity style={[styles.saveButton, { marginTop: 32 }]} onPress={handleSave}>
+            <Text style={styles.saveButtonText}>💾 Guardar Configuración</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>💾 Guardar Configuración</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 };
@@ -357,8 +376,29 @@ const styles = StyleSheet.create({
   logoSection: {
     marginBottom: 25,
   },
-  logoButton: {
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 10,
+    gap: 15,
+  },
+  logoButton: {
+    flex: 1,
+  },
+  logoButtonDisabled: {
+    opacity: 0.6,
+  },
+  testButton: {
+    backgroundColor: '#007AFF',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  testButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   logoPreview: {
     width: 120,
@@ -382,6 +422,32 @@ const styles = StyleSheet.create({
     color: '#6c757d',
     fontSize: 12,
     textAlign: 'center',
+  },
+  logoPlaceholderSubtext: {
+    color: '#adb5bd',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  logoPreviewContainer: {
+    alignItems: 'center',
+  },
+  logoPreviewText: {
+    color: '#28a745',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 5,
+  },
+  removeButton: {
+    backgroundColor: '#FF0000',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  removeButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
   },
   helpText: {
     fontSize: 12,

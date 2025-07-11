@@ -1,91 +1,89 @@
 // Utilidades para manejo de imágenes en el PDF
 import { Platform } from 'react-native';
-import { VEHICLE_IMAGES_BASE64, getVehicleImageBase64 } from './vehicleImagesBase64';
+import RNFS from 'react-native-fs';
 
-// Función para generar SVG con imagen del vehículo y puntos marcados
-export const generateVehicleSVGWithPoints = async (
-  bodyType: string = 'sedan',
-  points: Array<{x: number, y: number, number: number}> = []
-): Promise<string> => {
+export interface ImageInfo {
+  uri: string;
+  width: number;
+  height: number;
+  size: number;
+  type: string;
+}
+
+/**
+ * Convierte una imagen a base64 para uso en PDFs
+ */
+export const imageToBase64 = async (imageUri: string): Promise<string> => {
   try {
-    // Obtener la imagen base64 del vehículo
-    const base64Image = getVehicleImageBase64(bodyType);
-    
-    if (!base64Image) {
-      console.error('No se pudo cargar la imagen del vehículo:', bodyType);
-      return getPlaceholderImage();
+    if (Platform.OS === 'android') {
+      // En Android, leer el archivo como base64
+      const base64 = await RNFS.readFile(imageUri, 'base64');
+      return `data:image/jpeg;base64,${base64}`;
+    } else {
+      // En iOS, la URI ya puede estar en el formato correcto
+      return imageUri;
     }
-    
-    // Crear SVG que contenga la imagen del vehículo y los puntos superpuestos
-    const svgContent = `
-      <svg width="300" height="150" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="2" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.3)"/>
-          </filter>
-        </defs>
-        
-        <!-- Imagen del vehículo de fondo -->
-        <image href="${base64Image}" x="0" y="0" width="300" height="150" preserveAspectRatio="xMidYMid meet"/>
-        
-        <!-- Puntos de inspección superpuestos -->
-        ${points.map(point => `
-          <circle 
-            cx="${point.x * 300}" 
-            cy="${point.y * 150}" 
-            r="12" 
-            fill="#FF0000" 
-            stroke="#FFFFFF" 
-            stroke-width="3"
-            filter="url(#shadow)"
-          />
-          <text 
-            x="${point.x * 300}" 
-            y="${point.y * 150 + 4}" 
-            text-anchor="middle" 
-            fill="white" 
-            font-size="12" 
-            font-weight="bold"
-            font-family="Arial, sans-serif"
-          >
-            ${point.number}
-          </text>
-        `).join('')}
-      </svg>
-    `;
-    
-    return `data:image/svg+xml;base64,${btoa(svgContent)}`;
   } catch (error) {
-    console.error('Error generando SVG con puntos:', error);
-    return getPlaceholderImage();
+    console.error('Error convirtiendo imagen a base64:', error);
+    return imageUri; // Retornar la URI original como fallback
   }
 };
 
-// Función para obtener imagen con puntos marcados
-export const getVehicleImageWithPoints = async (
-  bodyType: string = 'sedan',
-  points: Array<{x: number, y: number, number: number}> = []
-): Promise<string> => {
+/**
+ * Valida si una imagen es válida para usar como logo o marca de agua
+ */
+export const validateImage = (imageUri: string): boolean => {
+  const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+  const extension = imageUri.toLowerCase().substring(imageUri.lastIndexOf('.'));
+  return validExtensions.includes(extension);
+};
+
+/**
+ * Obtiene información de una imagen
+ */
+export const getImageInfo = async (imageUri: string): Promise<ImageInfo | null> => {
   try {
-    // Si no hay puntos, devolver la imagen original
-    if (points.length === 0) {
-      return getVehicleImageBase64(bodyType);
-    }
-    
-    // Generar SVG con la imagen y los puntos superpuestos
-    return await generateVehicleSVGWithPoints(bodyType, points);
+    const stats = await RNFS.stat(imageUri);
+    return {
+      uri: imageUri,
+      width: 0, // Se puede obtener con react-native-image-size si es necesario
+      height: 0,
+      size: stats.size,
+      type: imageUri.substring(imageUri.lastIndexOf('.') + 1).toLowerCase(),
+    };
   } catch (error) {
-    console.error('Error obteniendo imagen del vehículo:', error);
-    return getPlaceholderImage();
+    console.error('Error obteniendo información de imagen:', error);
+    return null;
   }
 };
 
-// Imagen placeholder en caso de error
-const getPlaceholderImage = (): string => {
-  return `data:image/svg+xml;base64,${btoa(`
-    <svg width="300" height="150" xmlns="http://www.w3.org/2000/svg">
-      <rect width="300" height="150" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
-      <text x="150" y="75" text-anchor="middle" fill="#666" font-size="14">Imagen no disponible</text>
-    </svg>
-  `)}`;
+/**
+ * Optimiza una imagen para uso en la aplicación
+ */
+export const optimizeImage = async (
+  imageUri: string, 
+  maxWidth: number = 800, 
+  maxHeight: number = 600
+): Promise<string> => {
+  // Por ahora, retornamos la URI original
+  // En el futuro, se puede implementar compresión de imagen
+  return imageUri;
+};
+
+/**
+ * Limpia las imágenes temporales
+ */
+export const cleanupTempImages = async (): Promise<void> => {
+  try {
+    const tempDir = RNFS.TemporaryDirectoryPath;
+    const files = await RNFS.readDir(tempDir);
+    
+    for (const file of files) {
+      if (file.name.startsWith('temp_image_') && file.isFile()) {
+        await RNFS.unlink(file.path);
+      }
+    }
+  } catch (error) {
+    console.error('Error limpiando imágenes temporales:', error);
+  }
 }; 

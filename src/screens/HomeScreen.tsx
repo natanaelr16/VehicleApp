@@ -6,10 +6,22 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Image,
 } from 'react-native';
 import { useAppStore } from '../stores/appStore';
 import { InspectionForm } from '../types';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+
+type RootStackParamList = {
+  Home: undefined;
+  InspectionForm: undefined;
+  Settings: undefined;
+  PhotoCapture: undefined;
+  ReportPreview: undefined;
+};
+
+type NavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
 const HomeScreen: React.FC = () => {
   const { 
@@ -20,10 +32,14 @@ const HomeScreen: React.FC = () => {
     clearCurrentInspection 
   } = useAppStore();
 
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
 
   const createNewInspection = () => {
     clearCurrentInspection();
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const fecha = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+    const hora = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
     const newInspection: InspectionForm = {
       id: Date.now().toString(),
       vehicleInfo: {
@@ -33,14 +49,15 @@ const HomeScreen: React.FC = () => {
         model: '',
         year: '',
         color: '',
-        vin: '',
         ownerName: '',
         ownerPhone: '',
       },
-      inspectionDate: new Date(),
+      inspectionDate: now,
       inspectorName: settings.inspectorName,
       items: [],
       overallStatus: 'pending',
+      fechaIngreso: fecha,
+      horaIngreso: hora,
     };
     setCurrentInspection(newInspection);
     navigation.navigate('InspectionForm');
@@ -87,8 +104,17 @@ const HomeScreen: React.FC = () => {
         <TouchableOpacity style={styles.settingsButton} onPress={() => navigation.navigate('Settings')}>
           <Text style={styles.settingsButtonText}>⚙️</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Inspección Vehicular</Text>
-        <Text style={styles.subtitle}>{settings.companyName}</Text>
+        <View style={styles.headerContent}>
+          <View style={styles.logoTitleContainer}>
+            {settings.companyLogo && (
+              <Image source={{ uri: settings.companyLogo }} style={styles.companyLogo} />
+            )}
+            <View style={styles.titleContainer}>
+              <Text style={styles.title}>Inspección Vehicular</Text>
+              <Text style={styles.subtitle}>{settings.companyName}</Text>
+            </View>
+          </View>
+        </View>
       </View>
 
       <TouchableOpacity style={styles.newInspectionButton} onPress={createNewInspection}>
@@ -190,17 +216,17 @@ const styles = StyleSheet.create({
     paddingTop: 40,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: 'white',
-    textAlign: 'center',
+    textAlign: 'left',
+    marginBottom: 2,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: 'white',
-    textAlign: 'center',
-    marginTop: 5,
-    opacity: 0.9,
+    textAlign: 'left',
+    opacity: 0.8,
   },
   newInspectionButton: {
     backgroundColor: '#FF0000',
@@ -323,6 +349,26 @@ const styles = StyleSheet.create({
   settingsButtonText: {
     fontSize: 20,
     color: 'white',
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 15,
+    width: '100%',
+  },
+  titleContainer: {
+    alignItems: 'flex-start',
+  },
+  companyLogo: {
+    width: 100,
+    height: 50,
+    borderRadius: 6,
   },
 });
 

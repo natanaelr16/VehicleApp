@@ -7,7 +7,6 @@ export interface VehicleInfo {
   model: string;
   year: string;
   color: string;
-  vin: string;
   ownerName: string;
   ownerPhone: string;
   bodyType?: string;
@@ -65,6 +64,21 @@ export interface BodyInspection {
   capturedImage?: string;
 }
 
+export interface TireMeasurement {
+  id: string;
+  position: string; // 'front-left', 'front-right', 'rear-left', 'rear-right'
+  x: number;
+  y: number;
+  title: string; // 'Llanta DDerecha', etc.
+  value: number; // vida útil
+}
+
+export interface TireInspection {
+  measurements: TireMeasurement[];
+  vehicleType: string;
+  capturedImage?: string;
+}
+
 export interface InspectionForm {
   id: string;
   vehicleInfo: VehicleInfo;
@@ -77,6 +91,12 @@ export interface InspectionForm {
   notes?: string;
   photos?: PhotoData[];
   bodyInspection?: BodyInspection;
+  tireInspection?: TireInspection;
+  fechaIngreso?: string; // Nuevo campo
+  horaIngreso?: string;  // Nuevo campo
+  sugerenciasDiagnostico?: string[]; // Nuevo campo
+  precioSugerido?: string; // Nuevo campo
+  resultadoInspeccion?: 'approved' | 'rejected'; // Nuevo campo
 }
 
 export interface PhotoData {

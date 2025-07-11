@@ -6,12 +6,17 @@ import InspectionFormScreen from '../screens/InspectionFormScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import ReportPreviewScreen from '../screens/ReportPreviewScreen';
 import BodyInspectionScreen from '../screens/BodyInspectionScreen';
+import TireInspectionScreen from '../screens/TireInspectionScreen';
+import DiagnosisSuggestionsScreen from '../screens/DiagnosisSuggestionsScreen';
 
 export type RootStackParamList = {
   Home: undefined;
   InspectionForm: undefined;
   Settings: undefined;
   ReportPreview: undefined;
+  BodyInspection: undefined;
+  TireInspection: undefined;
+  DiagnosisSuggestions: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -68,6 +73,22 @@ const AppNavigator: React.FC = () => {
           component={BodyInspectionScreen}
           options={{
             title: 'Inspección de Carrocería',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="TireInspection" 
+          component={TireInspectionScreen}
+          options={{
+            title: 'Inspección de Llantas',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="DiagnosisSuggestions" 
+          component={DiagnosisSuggestionsScreen}
+          options={{
+            title: 'Sugerencias de Diagnóstico',
             headerShown: false,
           }}
         />

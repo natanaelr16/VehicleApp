@@ -197,13 +197,44 @@ const ReportPreviewScreen: React.FC = () => {
     });
   };
 
-  const itemsByCategory = currentInspection.items.reduce((acc, item) => {
-    if (!acc[item.category]) {
-      acc[item.category] = [];
+  // Definir el listado fijo agrupado para mostrar en el PDF
+  const inspectionGroups = [
+    {
+      title: 'Luces y Exterior',
+      items: [
+        'Luz Placa trasera', 'Luces altas', 'Luces bajas', 'Luces medias',
+        'Direccional del Der', 'Direccional Del Izq', 'Luces Freno', 'Luces reversa',
+        'Stop derecho', 'Stop izquiero', 'Tercer Stop', 'Exploradora derecha',
+        'Exploradora izquierda', 'Farola derecha', 'Farola izquiera',
+        'Puntas Chasis del Der', 'Puntas Chasis del Izq', 'Puntas Chasis tras Der', 'Puntas Chasis tras Izq',
+      ]
+    },
+    {
+      title: 'Motor y Soportes',
+      items: [
+        'Base Motor Der', 'Base Motor Izq', 'Fugas Aceite Motor', 'Fugas Aceite caja transmsion'
+      ]
+    },
+    {
+      title: 'Interior del Vehículo',
+      items: [
+        'Consola', 'Radio', 'Guantera', 'Cojineria', 'Forros', 'Tapetes', 'Visera',
+        'Descansabrazos', 'Reposa cabezas', 'Sunroof', 'Antena',
+        'Elevavidrios delanteross', 'Elevavidrios traseros'
+      ]
     }
-    acc[item.category].push(item);
-    return acc;
-  }, {} as Record<string, any[]>);
+  ];
+
+  // Función para obtener el estado de un item específico
+  const getItemStatus = (itemName: string) => {
+    const item = currentInspection.items.find(i => i.item === itemName);
+    return item ? item.status : 'not_applicable';
+  };
+
+  const getItemNotes = (itemName: string) => {
+    const item = currentInspection.items.find(i => i.item === itemName);
+    return item ? item.notes : '';
+  };
 
   return (
     <View style={styles.container}>
@@ -248,6 +279,21 @@ const ReportPreviewScreen: React.FC = () => {
           </Text>
         </View>
 
+        {/* Información de Fecha y Hora de Ingreso */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📅 INFORMACIÓN DE INGRESO</Text>
+          <View style={styles.inspectionInfo}>
+            <View style={styles.inspectionField}>
+              <Text style={styles.fieldLabel}>Fecha de Ingreso:</Text>
+              <Text style={styles.fieldValue}>{currentInspection.fechaIngreso || 'N/A'}</Text>
+            </View>
+            <View style={styles.inspectionField}>
+              <Text style={styles.fieldLabel}>Hora de Ingreso:</Text>
+              <Text style={styles.fieldValue}>{currentInspection.horaIngreso || 'N/A'}</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Información del Vehículo */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🚗 INFORMACIÓN DEL VEHÍCULO</Text>
@@ -273,10 +319,6 @@ const ReportPreviewScreen: React.FC = () => {
               <Text style={styles.fieldValue}>{currentInspection.vehicleInfo.color || 'N/A'}</Text>
             </View>
             <View style={styles.vehicleField}>
-              <Text style={styles.fieldLabel}>VIN:</Text>
-              <Text style={styles.fieldValue}>{currentInspection.vehicleInfo.vin || 'N/A'}</Text>
-            </View>
-            <View style={styles.vehicleField}>
               <Text style={styles.fieldLabel}>Propietario:</Text>
               <Text style={styles.fieldValue}>{currentInspection.vehicleInfo.ownerName || 'N/A'}</Text>
             </View>
@@ -284,31 +326,13 @@ const ReportPreviewScreen: React.FC = () => {
               <Text style={styles.fieldLabel}>Teléfono:</Text>
               <Text style={styles.fieldValue}>{currentInspection.vehicleInfo.ownerPhone || 'N/A'}</Text>
             </View>
-          </View>
-        </View>
-
-        {/* Información de la Inspección */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📋 INFORMACIÓN DE LA INSPECCIÓN</Text>
-          <View style={styles.inspectionInfo}>
-            <View style={styles.inspectionField}>
-              <Text style={styles.fieldLabel}>Fecha de Inspección:</Text>
-              <Text style={styles.fieldValue}>{formatDate(currentInspection.inspectionDate)}</Text>
-            </View>
-            <View style={styles.inspectionField}>
-              <Text style={styles.fieldLabel}>Inspector:</Text>
-              <Text style={styles.fieldValue}>{currentInspection.inspectorName || 'N/A'}</Text>
-            </View>
-            <View style={styles.inspectionField}>
-              <Text style={styles.fieldLabel}>Estado General:</Text>
-              <View style={[
-                styles.statusBadge,
-                { backgroundColor: getStatusColor(currentInspection.overallStatus === 'approved' ? 'good' : 'bad') }
-              ]}>
-                <Text style={styles.statusBadgeText}>
-                  {getOverallStatusText(currentInspection.overallStatus)}
-                </Text>
-              </View>
+            <View style={styles.vehicleField}>
+              <Text style={styles.fieldLabel}>Tipo de Carrocería:</Text>
+              <Text style={styles.fieldValue}>
+                {currentInspection.vehicleInfo.bodyType === 'sedan' ? 'Sedán' : 
+                 currentInspection.vehicleInfo.bodyType === 'suv' ? 'SUV' : 
+                 currentInspection.vehicleInfo.bodyType === 'pickup' ? 'Pickup' : 'N/A'}
+              </Text>
             </View>
           </View>
         </View>
@@ -317,27 +341,31 @@ const ReportPreviewScreen: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🔍 ITEMS DE INSPECCIÓN</Text>
           
-          {Object.entries(itemsByCategory).map(([category, items]) => (
-            <View key={category} style={styles.categorySection}>
-              <Text style={styles.categoryTitle}>{category.toUpperCase()}</Text>
-              {items.map((item) => (
-                <View key={item.id} style={styles.itemRow}>
-                  <View style={styles.itemInfo}>
-                    <Text style={styles.itemText}>{item.item}</Text>
-                    {item.notes && (
-                      <Text style={styles.itemNotes}>Nota: {item.notes}</Text>
-                    )}
+          {inspectionGroups.map((group, groupIndex) => (
+            <View key={group.title} style={styles.categorySection}>
+              <Text style={styles.categoryTitle}>{group.title.toUpperCase()}</Text>
+              {group.items.map((itemName) => {
+                const status = getItemStatus(itemName);
+                const notes = getItemNotes(itemName);
+                return (
+                  <View key={itemName} style={styles.itemRow}>
+                    <View style={styles.itemInfo}>
+                      <Text style={styles.itemText}>{itemName}</Text>
+                      {notes && (
+                        <Text style={styles.itemNotes}>Nota: {notes}</Text>
+                      )}
+                    </View>
+                    <View style={[
+                      styles.itemStatus,
+                      { backgroundColor: getStatusColor(status) }
+                    ]}>
+                      <Text style={styles.itemStatusText}>
+                        {getStatusText(status)}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={[
-                    styles.itemStatus,
-                    { backgroundColor: getStatusColor(item.status) }
-                  ]}>
-                    <Text style={styles.itemStatusText}>
-                      {getStatusText(item.status)}
-                    </Text>
-                  </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           ))}
 
@@ -416,6 +444,44 @@ const ReportPreviewScreen: React.FC = () => {
             <Text style={styles.notesText}>{currentInspection.notes}</Text>
           </View>
         )}
+
+        {/* Sugerencias de Diagnóstico */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>💡 SUGERENCIAS DE DIAGNÓSTICO</Text>
+          {(currentInspection.sugerenciasDiagnostico && currentInspection.sugerenciasDiagnostico.length > 0) ? (
+            currentInspection.sugerenciasDiagnostico.map((s, idx) => (
+              <Text key={idx} style={{ fontSize: 14, color: '#2c3e50', marginBottom: 4 }}>• {s}</Text>
+            ))
+          ) : (
+            <Text style={{ fontSize: 14, color: '#888', fontStyle: 'italic' }}>No hay sugerencias registradas.</Text>
+          )}
+        </View>
+
+        {/* Precio Sugerido */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>💲 PRECIO SUGERIDO</Text>
+          <Text style={{ fontSize: 16, color: '#222', fontWeight: 'bold', marginBottom: 8 }}>
+            {currentInspection.precioSugerido ? `$${currentInspection.precioSugerido}` : 'No ingresado'}
+          </Text>
+        </View>
+
+        {/* Resultado de Inspección */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>✅ RESULTADO DE INSPECCIÓN</Text>
+          <Text style={{
+            fontSize: 16,
+            fontWeight: 'bold',
+            color:
+              currentInspection.resultadoInspeccion === 'approved' ? '#4CAF50'
+              : currentInspection.resultadoInspeccion === 'rejected' ? '#FF0000'
+              : '#888',
+            marginBottom: 8
+          }}>
+            {currentInspection.resultadoInspeccion === 'approved' ? 'Aprobado'
+              : currentInspection.resultadoInspeccion === 'rejected' ? 'No Aprobado'
+              : 'Sin resultado'}
+          </Text>
+        </View>
 
         {/* Pie de Página */}
         <View style={styles.footer}>

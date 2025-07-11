@@ -45,6 +45,7 @@ const BodyInspectionScreen: React.FC<BodyInspectionScreenProps> = ({ route }) =>
   const [modalVisible, setModalVisible] = useState(false);
   const [pendingPoint, setPendingPoint] = useState<{x: number, y: number} | null>(null);
   const [labelInput, setLabelInput] = useState('');
+  const [observationInput, setObservationInput] = useState('');
   const viewShotRef = useRef<ViewShot>(null);
 
   // Sincronizar puntos cuando cambie la inspección actual
@@ -68,6 +69,7 @@ const BodyInspectionScreen: React.FC<BodyInspectionScreenProps> = ({ route }) =>
     const y = locationY / IMAGE_HEIGHT;
     setPendingPoint({ x, y });
     setLabelInput('');
+    setObservationInput('');
     setModalVisible(true);
   };
 
@@ -79,11 +81,13 @@ const BodyInspectionScreen: React.FC<BodyInspectionScreenProps> = ({ route }) =>
           x: pendingPoint.x,
           y: pendingPoint.y,
           label: labelInput,
+          observation: observationInput,
           number: points.length + 1,
         },
       ]);
       setPendingPoint(null);
       setLabelInput('');
+      setObservationInput('');
       setModalVisible(false);
     }
   };
@@ -199,9 +203,12 @@ const BodyInspectionScreen: React.FC<BodyInspectionScreenProps> = ({ route }) =>
         <View style={styles.observationsList}>
           <Text style={styles.observationsTitle}>Observaciones:</Text>
           {points.map((point) => (
-            <Text key={point.number} style={styles.observationItem}>
-              {point.number}. {point.label}
-            </Text>
+            <View key={point.number} style={styles.observationItem}>
+              <Text style={styles.observationNumber}>{point.number}. {point.label}</Text>
+              {point.observation && (
+                <Text style={styles.observationText}>   Observación: {point.observation}</Text>
+              )}
+            </View>
           ))}
         </View>
       )}
@@ -227,6 +234,14 @@ const BodyInspectionScreen: React.FC<BodyInspectionScreenProps> = ({ route }) =>
               onChangeText={setLabelInput}
               placeholder="Ejemplo: Rayón, golpe, abolladura..."
               autoFocus
+            />
+            <TextInput
+              style={[styles.modalInput, { marginTop: 10 }]}
+              value={observationInput}
+              onChangeText={setObservationInput}
+              placeholder="Observaciones adicionales (opcional)"
+              multiline
+              numberOfLines={3}
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalButtonCancel}>
@@ -318,6 +333,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#333',
     marginBottom: 2,
+  },
+  observationNumber: {
+    fontWeight: 'bold',
+    color: '#FF0000',
+  },
+  observationText: {
+    fontSize: 12,
+    color: '#555',
+    marginTop: 2,
   },
   saveButton: {
     backgroundColor: '#000',

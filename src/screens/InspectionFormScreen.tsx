@@ -7,28 +7,41 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '../components/AppNavigator';
 import { useAppStore } from '../stores/appStore';
 import { Picker } from '@react-native-picker/picker';
 import VehicleHistoryForm from '../components/VehicleHistoryForm';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 
 const InspectionFormScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { 
     currentInspection, 
     updateVehicleInfo, 
     addInspectionItem, 
     updateInspectionItem,
     saveInspection,
-    settings 
+    settings,
+    updateFechaIngreso,
+    updateHoraIngreso,
+    updateSugerenciasDiagnostico,
+    updatePrecioSugerido,
+    updateResultadoInspeccion,
+    setCurrentInspection
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<'vehicle' | 'history' | 'inspection'>('vehicle');
   const [bodyType, setBodyType] = useState(currentInspection?.vehicleInfo.bodyType || 'sedan');
+  const [showBodyTypeModal, setShowBodyTypeModal] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const [lastAddedItemId, setLastAddedItemId] = useState<string | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   // Scroll automático al nuevo item agregado (que ahora está al inicio)
   useEffect(() => {
@@ -123,6 +136,102 @@ const InspectionFormScreen: React.FC = () => {
     return statuses[(currentIndex + 1) % statuses.length];
   };
 
+  // Funciones para abrir selectores y actualizar
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const fecha = `${pad(selectedDate.getDate())}/${pad(selectedDate.getMonth() + 1)}/${selectedDate.getFullYear()}`;
+      updateFechaIngreso(fecha);
+    }
+  };
+  const handleTimeChange = (event: any, selectedDate?: Date) => {
+    setShowTimePicker(false);
+    if (selectedDate) {
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const hora = `${pad(selectedDate.getHours())}:${pad(selectedDate.getMinutes())}`;
+      updateHoraIngreso(hora);
+    }
+  };
+
+  // Definir el listado fijo agrupado
+  const inspectionGroups = [
+    {
+      title: 'Luces y Exterior',
+      items: [
+        'Luz Placa trasera', 'Luces altas', 'Luces bajas', 'Luces medias',
+        'Direccional del Der', 'Direccional Del Izq', 'Luces Freno', 'Luces reversa',
+        'Stop derecho', 'Stop izquiero', 'Tercer Stop', 'Exploradora derecha',
+        'Exploradora izquierda', 'Farola derecha', 'Farola izquiera',
+        'Puntas Chasis del Der', 'Puntas Chasis del Izq', 'Puntas Chasis tras Der', 'Puntas Chasis tras Izq',
+      ]
+    },
+    {
+      title: 'Motor y Soportes',
+      items: [
+        'Base Motor Der', 'Base Motor Izq', 'Fugas Aceite Motor', 'Fugas Aceite caja transmsion'
+      ]
+    },
+    {
+      title: 'Interior del Vehículo',
+      items: [
+        'Consola', 'Radio', 'Guantera', 'Cojineria', 'Forros', 'Tapetes', 'Visera',
+        'Descansabrazos', 'Reposa cabezas', 'Sunroof', 'Antena',
+        'Elevavidrios delanteross', 'Elevavidrios traseros'
+      ]
+    }
+  ];
+
+  // Mapeo visual <-> store
+  const estadoVisualToStore = (estado: string) => {
+    switch (estado) {
+      case 'Bueno': return 'good';
+      case 'Regular': return 'needs_attention';
+      case 'Malo': return 'bad';
+      case 'N/A': return 'not_applicable';
+      default: return 'not_applicable';
+    }
+  };
+  const estadoStoreToVisual = (estado: string) => {
+    switch (estado) {
+      case 'good': return 'Bueno';
+      case 'needs_attention': return 'Regular';
+      case 'bad': return 'Malo';
+      case 'not_applicable': return 'N/A';
+      default: return '';
+    }
+  };
+
+  // Estado local para los resultados de inspección
+  const [fixedItems, setFixedItems] = useState(() => {
+    const initial: Record<string, { estado: string; observaciones: string }> = {};
+    inspectionGroups.forEach(group => {
+      group.items.forEach(item => {
+        const found = currentInspection?.items?.find(i => i.item === item);
+        initial[item] = found ? { estado: estadoStoreToVisual(found.status || ''), observaciones: found.notes || '' } : { estado: '', observaciones: '' };
+      });
+    });
+    return initial;
+  });
+
+  const handleFixedItemChange = (item: string, field: 'estado' | 'observaciones', value: string) => {
+    setFixedItems(prev => {
+      const updated = { ...prev, [item]: { ...prev[item], [field]: value } };
+      // Actualizar en el store
+      const itemsArray = Object.entries(updated).map(([itemName, data]) => ({
+        id: itemName,
+        category: '',
+        item: itemName,
+        status: estadoVisualToStore(data.estado) as 'good' | 'bad' | 'needs_attention' | 'not_applicable',
+        notes: data.observaciones
+      }));
+      if (currentInspection) {
+        setCurrentInspection({ ...currentInspection, items: itemsArray });
+      }
+      return updated;
+    });
+  };
+
   return (
     <View style={styles.container}>
       {/* Header moderno con botón de regreso */}
@@ -168,9 +277,54 @@ const InspectionFormScreen: React.FC = () => {
           /* Tab de información del vehículo */
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📋 Información del Vehículo</Text>
-            
 
-            
+            {/* Campos de fecha y hora de ingreso */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Fecha de Ingreso</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  value={currentInspection.fechaIngreso || ''}
+                  editable={false}
+                  placeholder="DD/MM/AAAA"
+                />
+                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={{ marginLeft: 8 }}>
+                  <Text style={{ fontSize: 22 }}>📅</Text>
+                </TouchableOpacity>
+              </View>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={handleDateChange}
+                />
+              )}
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Hora de Ingreso</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  value={currentInspection.horaIngreso || ''}
+                  editable={false}
+                  placeholder="HH:MM"
+                />
+                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={{ marginLeft: 8 }}>
+                  <Text style={{ fontSize: 22 }}>⏰</Text>
+                </TouchableOpacity>
+              </View>
+              {showTimePicker && (
+                <DateTimePicker
+                  value={new Date()}
+                  mode="time"
+                  display="default"
+                  onChange={handleTimeChange}
+                  is24Hour={true}
+                />
+              )}
+            </View>
+
             <View style={styles.inputGroup}>
               <Text style={styles.label}>🚗 Placa</Text>
               <TextInput
@@ -223,7 +377,8 @@ const InspectionFormScreen: React.FC = () => {
               />
             </View>
 
-            <View style={styles.inputGroup}>
+            {/* Eliminar campo VIN */}
+            {/* <View style={styles.inputGroup}>
               <Text style={styles.label}>🔢 VIN</Text>
               <TextInput
                 style={styles.input}
@@ -232,7 +387,7 @@ const InspectionFormScreen: React.FC = () => {
                 placeholder="1HGBH41JXMN109186"
                 autoCapitalize="characters"
               />
-            </View>
+            </View> */}
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>👤 Propietario</Text>
@@ -256,24 +411,27 @@ const InspectionFormScreen: React.FC = () => {
             </View>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Tipo de Carrocería</Text>
-              <Picker
-                selectedValue={bodyType}
-                onValueChange={(itemValue) => {
-                  setBodyType(itemValue);
-                  updateVehicleInfo({ bodyType: itemValue });
-                }}
+              <TouchableOpacity
                 style={styles.picker}
+                onPress={() => setShowBodyTypeModal(true)}
               >
-                <Picker.Item label="Sedán" value="sedan" />
-                <Picker.Item label="SUV" value="suv" />
-                <Picker.Item label="Pickup" value="pickup" />
-              </Picker>
+                <Text style={styles.pickerText}>
+                  {bodyType === 'sedan' ? 'Sedán' : bodyType === 'suv' ? 'SUV' : 'Pickup'}
+                </Text>
+                <Text style={styles.pickerArrow}>▼</Text>
+              </TouchableOpacity>
             </View>
             <TouchableOpacity
               style={styles.bodyInspectionButton}
               onPress={() => (navigation as any).navigate('BodyInspection', { vehicleType: bodyType })}
             >
               <Text style={styles.bodyInspectionButtonText}>🚗 Inspección de Carrocería</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.tireInspectionButton}
+              onPress={() => (navigation as any).navigate('TireInspection', { vehicleType: bodyType })}
+            >
+                              <Text style={styles.tireInspectionButtonText}>🛞 Inspección de Ruedas</Text>
             </TouchableOpacity>
           </View>
         ) : activeTab === 'history' ? (
@@ -283,82 +441,171 @@ const InspectionFormScreen: React.FC = () => {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>🔧 Partes y Accesorios</Text>
-              <TouchableOpacity style={styles.addButton} onPress={addItem}>
-                <Text style={styles.addButtonText}>+ Agregar</Text>
-              </TouchableOpacity>
+              {/* Eliminar botones de agregar/quitar ítems */}
             </View>
 
-            {currentInspection.items.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>
-                  🔧 No hay partes y accesorios registrados
-                </Text>
-                <Text style={styles.emptyStateSubtext}>
-                  Toca "Agregar" para crear el primer elemento
-                </Text>
-              </View>
-            ) : (
-              currentInspection.items.map((item: any) => {
-                const isDuplicate = isItemDuplicate(item.item, item.id);
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.itemCard}
-                    onPress={() => removeItem(item.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.itemHeader}>
-                      <View style={styles.itemInputContainer}>
-                        <TextInput
-                          style={[
-                            styles.itemInput,
-                            isDuplicate && styles.itemInputError
-                          ]}
-                          value={item.item}
-                          onChangeText={(text) => updateItem(item.id, 'item', text)}
-                          placeholder="Descripción del item"
-                          onPressIn={(e) => e.stopPropagation()}
-                        />
-                        {isDuplicate && (
-                          <Text style={styles.duplicateWarning}>
-                            ⚠️ Item duplicado
-                          </Text>
-                        )}
-                      </View>
-                      <View style={styles.itemActions}>
-                        <TouchableOpacity
-                          style={[
-                            styles.statusButton,
-                            { backgroundColor: getStatusColor(item.status) }
-                          ]}
-                          onPress={() => updateItem(item.id, 'status', nextStatus(item.status))}
-                          onPressIn={(e) => e.stopPropagation()}
-                        >
-                          <Text style={styles.statusButtonText}>
-                            {getStatusText(item.status)}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
+            {/* En la pestaña de inspección, mostrar el listado fijo agrupado */}
+            {activeTab === 'inspection' && (
+              <View style={styles.section}>
+                {inspectionGroups.map((group, groupIndex) => (
+                  <View key={group.title} style={{ marginBottom: 24 }}>
+                    <View style={{
+                      backgroundColor: groupIndex < 2 ? '#FF0000' : '#f0f0f0',
+                      padding: 12,
+                      borderRadius: 8,
+                      marginBottom: 12
+                    }}>
+                      <Text style={{ 
+                        fontWeight: 'bold', 
+                        fontSize: 16,
+                        color: groupIndex < 2 ? 'white' : '#333',
+                        textAlign: 'justify'
+                      }}>{group.title}</Text>
                     </View>
-                    
-                    <TextInput
-                      style={styles.notesInput}
-                      value={item.notes}
-                      onChangeText={(text) => updateItem(item.id, 'notes', text)}
-                      placeholder="Notas adicionales (opcional)"
-                      multiline
-                      numberOfLines={2}
-                      onPressIn={(e) => e.stopPropagation()}
-                    />
-                    
-
-                  </TouchableOpacity>
-                );
-              })
+                    {group.items.map((item, itemIndex) => (
+                      <View key={item} style={{ 
+                        marginBottom: 12, 
+                        backgroundColor: itemIndex % 2 === 0 ? '#f8f9fa' : '#ffffff', 
+                        borderRadius: 8, 
+                        padding: 16,
+                        borderLeftWidth: 4,
+                        borderLeftColor: groupIndex < 2 ? '#FF0000' : '#007bff',
+                        elevation: 2,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 2,
+                        marginHorizontal: -8
+                      }}>
+                        <Text style={{ fontSize: 15, fontWeight: '600', marginBottom: 8, color: '#2c3e50' }}>{item}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, justifyContent: 'space-between' }}>
+                          {['Bueno', 'Regular', 'Malo', 'N/A'].map(estado => {
+                            let bgColor = '#fff';
+                            if (fixedItems[item]?.estado === estado) {
+                              if (estado === 'Bueno') bgColor = '#4CAF50'; // verde
+                              else if (estado === 'Regular') bgColor = '#FFEB3B'; // amarillo
+                              else if (estado === 'Malo') bgColor = '#FF0000'; // rojo
+                              else if (estado === 'N/A') bgColor = '#9E9E9E'; // gris
+                              else bgColor = '#fff'; // blanco para vacío
+                            }
+                            return (
+                              <TouchableOpacity
+                                key={estado}
+                                style={{
+                                  backgroundColor: bgColor,
+                                  paddingHorizontal: 8,
+                                  paddingVertical: 6,
+                                  borderRadius: 12,
+                                  marginRight: 4,
+                                  borderWidth: fixedItems[item]?.estado === estado ? 2 : 1,
+                                  borderColor: fixedItems[item]?.estado === estado ? '#333' : '#ccc',
+                                  flex: 1,
+                                  alignItems: 'center'
+                                }}
+                                onPress={() => handleFixedItemChange(item, 'estado', estado)}
+                              >
+                                <Text style={{
+                                  color: estado === 'Regular' && fixedItems[item]?.estado === estado ? '#333' : (fixedItems[item]?.estado === estado ? 'white' : '#333'),
+                                  fontWeight: 'bold',
+                                  fontSize: 11
+                                }}>{estado}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                        <TextInput
+                          style={{ 
+                            backgroundColor: 'white', 
+                            borderWidth: 1, 
+                            borderColor: '#e8e8e8', 
+                            borderRadius: 8, 
+                            padding: 10, 
+                            fontSize: 14,
+                            minHeight: 40
+                          }}
+                          value={fixedItems[item]?.observaciones || ''}
+                          onChangeText={text => handleFixedItemChange(item, 'observaciones', text)}
+                          placeholder="Observaciones (opcional)"
+                          multiline
+                        />
+                      </View>
+                    ))}
+                  </View>
+                ))}
+              </View>
             )}
           </View>
         )}
+
+        {activeTab === 'inspection' && (
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#FF0000',
+              padding: 20,
+              borderRadius: 16,
+              alignItems: 'center',
+              margin: 24,
+              marginTop: 40,
+              elevation: 4,
+            }}
+            onPress={() => navigation.navigate('DiagnosisSuggestions')}
+          >
+            <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>
+              Finalizar inspección y agregar sugerencias de diagnóstico
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Eliminar la sección de sugerencias de diagnóstico, precio sugerido y selector de aprobado/no aprobado del formulario principal. */}
       </ScrollView>
+
+      {/* Modal para selección de tipo de carrocería */}
+      <Modal
+        visible={showBodyTypeModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowBodyTypeModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowBodyTypeModal(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Seleccionar Tipo de Carrocería</Text>
+            <TouchableOpacity
+              style={styles.modalOption}
+              onPress={() => {
+                setBodyType('sedan');
+                updateVehicleInfo({ bodyType: 'sedan' });
+                setShowBodyTypeModal(false);
+              }}
+            >
+              <Text style={styles.modalOptionText}>Sedán</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalOption}
+              onPress={() => {
+                setBodyType('suv');
+                updateVehicleInfo({ bodyType: 'suv' });
+                setShowBodyTypeModal(false);
+              }}
+            >
+              <Text style={styles.modalOptionText}>SUV</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalOption}
+              onPress={() => {
+                setBodyType('pickup');
+                updateVehicleInfo({ bodyType: 'pickup' });
+                setShowBodyTypeModal(false);
+              }}
+            >
+              <Text style={styles.modalOptionText}>Pickup</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Footer moderno con botones */}
       <View style={styles.footer}>
@@ -614,16 +861,31 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  tireInspectionButton: {
+    backgroundColor: '#FF0000',
+    padding: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  tireInspectionButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
   picker: {
     backgroundColor: 'white',
     borderWidth: 2,
     borderColor: '#e8e8e8',
     borderRadius: 10,
     marginTop: 2,
-    height: 36,
-    minHeight: 36,
-    maxHeight: 38,
+    height: 50,
+    minHeight: 50,
+    maxHeight: 50,
     justifyContent: 'center',
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   itemInputContainer: {
     flex: 1,
@@ -644,6 +906,58 @@ const styles = StyleSheet.create({
   itemActions: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  selectedValueText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+    fontStyle: 'italic',
+  },
+  pickerText: {
+    fontSize: 16,
+    color: '#2c3e50',
+    flex: 1,
+  },
+  pickerArrow: {
+    fontSize: 16,
+    color: '#666',
+    marginLeft: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    width: '80%',
+    maxWidth: 300,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalOption: {
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e8e8e8',
+  },
+  modalOptionText: {
+    fontSize: 16,
+    color: '#2c3e50',
+    textAlign: 'center',
   },
 
 });
