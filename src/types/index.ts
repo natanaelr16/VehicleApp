@@ -77,6 +77,14 @@ export interface TireInspection {
   measurements: TireMeasurement[];
   vehicleType: string;
   capturedImage?: string;
+  batteryStatus?: {
+    percentage: number; // 0-100
+    observations: string;
+  };
+  brakeFluidLevel?: {
+    level: number; // nivel manual
+    observations: string;
+  };
 }
 
 export interface InspectionForm {
@@ -92,6 +100,7 @@ export interface InspectionForm {
   photos?: PhotoData[];
   bodyInspection?: BodyInspection;
   tireInspection?: TireInspection;
+  inspectionPhotos?: InspectionPhoto[]; // Nuevo campo
   fechaIngreso?: string; // Nuevo campo
   horaIngreso?: string;  // Nuevo campo
   sugerenciasDiagnostico?: string[]; // Nuevo campo
@@ -105,6 +114,14 @@ export interface PhotoData {
   description: string;
   timestamp: Date;
   itemId?: string; // ID del item de inspección al que pertenece
+}
+
+export interface InspectionPhoto {
+  id: string;
+  uri: string;
+  label: number; // etiqueta numérica
+  observations: string;
+  timestamp: Date;
 }
 
 export interface AppSettings {

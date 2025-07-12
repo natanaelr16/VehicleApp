@@ -220,7 +220,17 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
   if (inspection.bodyInspection) {
     let vehicleImage;
     if (inspection.bodyInspection.capturedImage) {
-      vehicleImage = inspection.bodyInspection.capturedImage;
+      // Si la imagen no es base64, conviértela
+      if (inspection.bodyInspection.capturedImage.startsWith('data:image')) {
+        vehicleImage = inspection.bodyInspection.capturedImage;
+      } else {
+        try {
+          vehicleImage = await imageToBase64(inspection.bodyInspection.capturedImage);
+        } catch (e) {
+          vehicleImage = '';
+        }
+      }
+      console.log('Usando imagen capturada para inspección de carrocería');
     } else {
       // Usar una imagen placeholder para el tipo de vehículo
       const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
@@ -230,6 +240,7 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
           <text x="150" y="75" text-anchor="middle" fill="#666" font-size="14">${bodyType.toUpperCase()}</text>
         </svg>
       `);
+      console.log('Usando imagen placeholder para inspección de carrocería');
     }
 
     bodyInspectionHTML = `
@@ -260,9 +271,9 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
             </p>
           </div>
           
-          <table style="width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <table style="width: 100%; border-collapse: collapse; margin-top: 20px; background: rgba(255,255,255,0.8); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
             <thead>
-              <tr style="background: linear-gradient(135deg, #FF0000, #cc0000);">
+              <tr style="background: linear-gradient(135deg, rgba(255,0,0,0.7), rgba(204,0,0,0.7));">
                 <th style="padding: 15px; border: none; text-align: center; color: white; font-weight: bold;">Punto</th>
                 <th style="padding: 15px; border: none; color: white; font-weight: bold;">Descripción</th>
                 <th style="padding: 15px; border: none; color: white; font-weight: bold;">Observación</th>
@@ -271,15 +282,15 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
             <tbody>
               ${inspection.bodyInspection.points.map((point: BodyInspectionPoint) => `
                 <tr>
-                  <td style="padding: 12px; border: 1px solid #e0e0e0; text-align: center; font-weight: bold; background: #f8f9fa;">
+                  <td style="padding: 12px; border: 1px solid rgba(224,224,224,0.8); text-align: center; font-weight: bold; background: rgba(248,249,250,0.6);">
                     <span style="background: #FF0000; color: white; padding: 6px 10px; border-radius: 50%; font-size: 14px;">
                       ${point.number}
                     </span>
                   </td>
-                  <td style="padding: 12px; border: 1px solid #e0e0e0;">
+                  <td style="padding: 12px; border: 1px solid rgba(224,224,224,0.8); background: rgba(255,255,255,0.6);">
                     ${point.label || 'Sin descripción'}
                   </td>
-                  <td style="padding: 12px; border: 1px solid #e0e0e0; color: #666;">
+                  <td style="padding: 12px; border: 1px solid rgba(224,224,224,0.8); color: #666; background: rgba(255,255,255,0.6);">
                     ${point.observation || 'Sin observación'}
                   </td>
                 </tr>
@@ -292,7 +303,7 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
   }
 
   // Función para generar HTML de items de inspección
-  const generateInspectionItemsHTML = (inspection: InspectionForm) => {
+  const generateInspectionItemsHTML = (inspection: InspectionForm, groupTitle?: string) => {
     // Definir el listado fijo agrupado
     const inspectionGroups = [
       {
@@ -321,6 +332,11 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
       }
     ];
 
+    // Si se especifica un grupo, filtrar solo ese grupo
+    const groupsToShow = groupTitle 
+      ? inspectionGroups.filter(group => group.title === groupTitle)
+      : inspectionGroups;
+
     // Función para obtener el estado de un item específico
     const getItemStatus = (itemName: string) => {
       const item = inspection.items.find(i => i.item === itemName);
@@ -334,19 +350,19 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
 
     let html = '';
     
-    inspectionGroups.forEach((group, groupIndex) => {
+    groupsToShow.forEach((group, groupIndex) => {
       html += `
-        <div style="margin: 20px 0; background: #f8f9fa; border-radius: 8px; padding: 15px; border-left: 4px solid ${groupIndex < 2 ? '#FF0000' : '#007bff'};">
+        <div style="margin: 20px 0; background: #f8f9fa; border-radius: 8px; padding: 15px; border-left: 4px solid ${group.title === 'Luces y Exterior' ? '#FF0000' : group.title === 'Motor y Soportes' ? '#FF0000' : '#007bff'};">
           <h4 style="margin: 0 0 15px 0; color: #333; font-size: 16px; font-weight: bold;">${group.title}</h4>
-          <table class="inspection-items-table">
+          <table style="width: 100%; border-collapse: collapse; margin-top: 10px; background: rgba(255,255,255,0.2);">
             <thead>
-              <tr>
-                <th style="width: 50%;">Item</th>
-                <th style="width: 15%;">Bueno</th>
-                <th style="width: 15%;">Regular</th>
-                <th style="width: 15%;">Malo</th>
-                <th style="width: 15%;">N/A</th>
-                <th style="width: 20%;">Observaciones</th>
+              <tr style="background: rgba(233,236,239,0.3);">
+                <th style="padding: 8px; border: 1px solid rgba(222,226,230,0.3); text-align: left; font-size: 12px; background: rgba(248,249,250,0.2);">Item</th>
+                <th style="padding: 8px; border: 1px solid rgba(222,226,230,0.3); text-align: center; font-size: 12px; background: rgba(248,249,250,0.2);">Bueno</th>
+                <th style="padding: 8px; border: 1px solid rgba(222,226,230,0.3); text-align: center; font-size: 12px; background: rgba(248,249,250,0.2);">Regular</th>
+                <th style="padding: 8px; border: 1px solid rgba(222,226,230,0.3); text-align: center; font-size: 12px; background: rgba(248,249,250,0.2);">Malo</th>
+                <th style="padding: 8px; border: 1px solid rgba(222,226,230,0.3); text-align: center; font-size: 12px; background: rgba(248,249,250,0.2);">N/A</th>
+                <th style="padding: 8px; border: 1px solid rgba(222,226,230,0.3); text-align: left; font-size: 12px; background: rgba(248,249,250,0.2);">Observaciones</th>
               </tr>
             </thead>
             <tbody>
@@ -358,12 +374,12 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
         
         html += `
           <tr>
-            <td>${itemName}</td>
-            <td style="text-align: center;">${status === 'good' ? '<span class="status-good">✓</span>' : ''}</td>
-            <td style="text-align: center;">${status === 'needs_attention' ? '<span class="status-attention">⚠</span>' : ''}</td>
-            <td style="text-align: center;">${status === 'bad' ? '<span class="status-bad">✗</span>' : ''}</td>
-            <td style="text-align: center;">${status === 'not_applicable' ? '<span class="status-na">-</span>' : ''}</td>
-            <td style="font-size: 11px; color: #666;">${notes || '-'}</td>
+            <td style="padding: 8px; border: 1px solid rgba(222,226,230,0.3); font-size: 12px; background: rgba(255,255,255,0.1);">${itemName}</td>
+            <td style="padding: 8px; border: 1px solid rgba(222,226,230,0.3); text-align: center; font-size: 12px; background: rgba(255,255,255,0.1);">${status === 'good' ? '✓' : ''}</td>
+            <td style="padding: 8px; border: 1px solid rgba(222,226,230,0.3); text-align: center; font-size: 12px; background: rgba(255,255,255,0.1);">${status === 'needs_attention' ? '⚠' : ''}</td>
+            <td style="padding: 8px; border: 1px solid rgba(222,226,230,0.3); text-align: center; font-size: 12px; background: rgba(255,255,255,0.1);">${status === 'bad' ? '✗' : ''}</td>
+            <td style="padding: 8px; border: 1px solid rgba(222,226,230,0.3); text-align: center; font-size: 12px; background: rgba(255,255,255,0.1);">${status === 'not_applicable' ? '❌' : ''}</td>
+            <td style="padding: 8px; border: 1px solid rgba(222,226,230,0.3); font-size: 11px; color: #666; background: rgba(255,255,255,0.1);">${notes || '-'}</td>
           </tr>
         `;
       });
@@ -379,14 +395,21 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
   };
 
   // Función para generar HTML de inspección de carrocería
-  const generateBodyInspectionHTML = (inspection: InspectionForm) => {
+  const generateBodyInspectionHTML = async (inspection: InspectionForm, compact = false) => {
+    console.log('generateBodyInspectionHTML - Iniciando...');
     if (!inspection.bodyInspection) {
+      console.log('generateBodyInspectionHTML - No hay bodyInspection');
       return '';
     }
 
+    console.log('generateBodyInspectionHTML - capturedImage:', inspection.bodyInspection.capturedImage ? 'Present' : 'Missing');
+    
     let vehicleImage;
     if (inspection.bodyInspection.capturedImage) {
+      // La imagen capturada por ViewShot ya viene en formato base64
       vehicleImage = inspection.bodyInspection.capturedImage;
+      console.log('BodyInspection - Usando imagen capturada, longitud:', vehicleImage.length);
+      console.log('BodyInspection - Primeros 100 caracteres:', vehicleImage.substring(0, 100));
     } else {
       // Usar una imagen placeholder para el tipo de vehículo
       const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
@@ -396,74 +419,59 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
           <text x="150" y="75" text-anchor="middle" fill="#666" font-size="14">${bodyType.toUpperCase()}</text>
         </svg>
       `);
+      console.log('BodyInspection - Usando imagen placeholder para:', bodyType);
     }
 
-    return `
-      <div class="section-title">🚗 INSPECCIÓN DE CARROCERÍA</div>
-      <div style="margin: 20px 0; background: #f8f9fa; border-radius: 12px; padding: 20px; border: 1px solid #e0e0e0;">
-        <div style="display: flex; gap: 20px; margin-bottom: 20px;">
-          <div style="flex: 1;">
-            <p><strong>Tipo de Vehículo:</strong> ${inspection.vehicleInfo.bodyType || 'No especificado'}</p>
-            <p><strong>Puntos Inspeccionados:</strong> 
-              <span style="background: #FF0000; color: white; padding: 4px 8px; border-radius: 12px; font-weight: bold;">
-                ${inspection.bodyInspection.points.length}
-              </span>
-            </p>
-          </div>
+    const html = `
+      <div class="section-title" style="font-size:${compact ? '11px' : '16px'};">🚗 INSPECCIÓN DE CARROCERÍA</div>
+      <div style="margin: 6px 0; background: #f8f9fa; border-radius: 8px; padding: ${compact ? '6px' : '20px'}; border: 1px solid #e0e0e0;">
+        <div style="text-align: center; margin-bottom: 6px;">
+          <img src="${vehicleImage}" style="width: ${compact ? '200px' : '350px'}; height: ${compact ? '100px' : '175px'}; border-radius: 6px;" alt="Vehículo" />
         </div>
-        
-        ${inspection.bodyInspection.points.length > 0 ? `
-          <div style="text-align: center; margin: 20px 0;">
-            <div style="display: inline-block; border: 2px solid #FF0000; border-radius: 8px; padding: 15px; background: white;">
-              <img src="${vehicleImage}" 
-                   style="width: 350px; height: 175px; border-radius: 6px;" 
-                   alt="Vehículo ${inspection.vehicleInfo.bodyType || 'sedan'}" />
-            </div>
-            <p style="margin-top: 15px; font-size: 12px; color: #666; font-style: italic;">
-              <strong>Leyenda:</strong> Los números rojos indican los puntos de inspección donde se encontraron daños o condiciones que requieren atención.
-            </p>
-          </div>
-          
-          <table style="width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <thead>
-              <tr style="background: linear-gradient(135deg, #FF0000, #cc0000);">
-                <th style="padding: 15px; border: none; text-align: center; color: white; font-weight: bold;">Punto</th>
-                <th style="padding: 15px; border: none; color: white; font-weight: bold;">Descripción</th>
-                <th style="padding: 15px; border: none; color: white; font-weight: bold;">Observación</th>
+        <table style="width: 100%; border-collapse: collapse; font-size: ${compact ? '8px' : '13px'};">
+          <thead>
+            <tr style="background: linear-gradient(135deg, rgba(255,0,0,0.5), rgba(204,0,0,0.5));">
+              <th style="padding: ${compact ? '2px' : '10px'}; border: none; text-align: center; color: white; font-weight: bold;">Punto</th>
+              <th style="padding: ${compact ? '2px' : '10px'}; border: none; color: white; font-weight: bold;">Descripción</th>
+              <th style="padding: ${compact ? '2px' : '10px'}; border: none; color: white; font-weight: bold;">Observación</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${inspection.bodyInspection.points.map((point: BodyInspectionPoint) => `
+              <tr>
+                <td style="padding: ${compact ? '2px' : '8px'}; border: 1px solid rgba(224,224,224,0.4); text-align: center; font-weight: bold; background: rgba(248,249,250,0.3);">
+                  <span style="background: #FF0000; color: white; padding: 2px 4px; border-radius: 50%; font-size: ${compact ? '8px' : '14px'};">
+                    ${point.number}
+                  </span>
+                </td>
+                <td style="padding: ${compact ? '2px' : '8px'}; border: 1px solid rgba(224,224,224,0.4); background: rgba(255,255,255,0.3);">
+                  ${point.label || 'Sin descripción'}
+                </td>
+                <td style="padding: ${compact ? '2px' : '8px'}; border: 1px solid rgba(224,224,224,0.4); color: #666; background: rgba(255,255,255,0.3);">
+                  ${point.observation || 'Sin observación'}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              ${inspection.bodyInspection.points.map((point: BodyInspectionPoint) => `
-                <tr>
-                  <td style="padding: 12px; border: 1px solid #e0e0e0; text-align: center; font-weight: bold; background: #f8f9fa;">
-                    <span style="background: #FF0000; color: white; padding: 6px 10px; border-radius: 50%; font-size: 14px;">
-                      ${point.number}
-                    </span>
-                  </td>
-                  <td style="padding: 12px; border: 1px solid #e0e0e0;">
-                    ${point.label || 'Sin descripción'}
-                  </td>
-                  <td style="padding: 12px; border: 1px solid #e0e0e0; color: #666;">
-                    ${point.observation || 'Sin observación'}
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        ` : '<p style="text-align: center; color: #666; font-style: italic;">No se realizaron puntos de inspección en la carrocería.</p>'}
+            `).join('')}
+          </tbody>
+        </table>
       </div>
     `;
+    
+    console.log('generateBodyInspectionHTML - HTML generado, longitud:', html.length);
+    console.log('generateBodyInspectionHTML - Imagen en HTML:', html.includes(vehicleImage.substring(0, 50)));
+    
+    return html;
   };
 
   // Función para generar HTML de inspección de llantas
-  const generateTireInspectionHTML = (inspection: InspectionForm) => {
-    if (!inspection.tireInspection) {
-      return '';
-    }
+  const generateTireInspectionHTML = async (inspection: InspectionForm, compact = false) => {
+    if (!inspection.tireInspection) return '';
 
     let vehicleImage;
     if (inspection.tireInspection.capturedImage) {
+      // La imagen capturada por ViewShot ya viene en formato base64
       vehicleImage = inspection.tireInspection.capturedImage;
+      console.log('TireInspection - Usando imagen capturada:', vehicleImage.substring(0, 50) + '...');
     } else {
       // Usar una imagen placeholder para el tipo de vehículo
       const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
@@ -473,58 +481,120 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
           <text x="150" y="90" text-anchor="middle" fill="#666" font-size="14">${bodyType.toUpperCase()}</text>
         </svg>
       `);
+      console.log('TireInspection - Usando imagen placeholder para:', bodyType);
     }
 
     return `
-      <div class="section-title">🛞 INSPECCIÓN DE LLANTAS</div>
-      <div style="margin: 20px 0; background: #f8f9fa; border-radius: 12px; padding: 20px; border: 1px solid #e0e0e0;">
-        <div style="display: flex; gap: 20px; margin-bottom: 20px;">
-          <div style="flex: 1;">
-            <p><strong>Tipo de Vehículo:</strong> ${inspection.vehicleInfo.bodyType || 'No especificado'}</p>
-            <p><strong>Llantas Registradas:</strong> 
-              <span style="background: #0066cc; color: white; padding: 4px 8px; border-radius: 12px; font-weight: bold;">
-                ${inspection.tireInspection.measurements.length}
-              </span>
-            </p>
-          </div>
+      <div class="section-title" style="font-size:${compact ? '11px' : '16px'};">🛞 INSPECCIÓN DE LLANTAS</div>
+      <div style="margin: 6px 0; background: #f8f9fa; border-radius: 8px; padding: ${compact ? '6px' : '20px'}; border: 1px solid #e0e0e0;">
+        <div style="text-align: center; margin-bottom: 6px;">
+          <img src="${vehicleImage}" style="width: ${compact ? '200px' : '350px'}; height: ${compact ? '120px' : '210px'}; border-radius: 6px;" alt="Vehículo" />
         </div>
-        
-        ${inspection.tireInspection.measurements.length > 0 ? `
-          <div style="text-align: center; margin: 20px 0;">
-            <div style="display: inline-block; border: 2px solid #0066cc; border-radius: 8px; padding: 15px; background: white;">
-              <img src="${vehicleImage}" 
-                   style="width: 350px; height: 210px; border-radius: 6px;" 
-                   alt="Vehículo ${inspection.vehicleInfo.bodyType || 'sedan'}" />
-            </div>
-            <p style="margin-top: 15px; font-size: 12px; color: #666; font-style: italic;">
-              <strong>Leyenda:</strong> Los círculos azules indican las posiciones de las llantas donde se registraron las mediciones.
-            </p>
-          </div>
-          
-          <table style="width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <thead>
-              <tr style="background: linear-gradient(135deg, #0066cc, #0052a3);">
-                <th style="padding: 15px; border: none; text-align: center; color: white; font-weight: bold;">Título</th>
-                <th style="padding: 15px; border: none; color: white; font-weight: bold;">Valor (mm)</th>
+        <table style="width: 100%; border-collapse: collapse; font-size: ${compact ? '8px' : '13px'};">
+          <thead>
+            <tr style="background: linear-gradient(135deg, rgba(0,102,204,0.5), rgba(0,82,163,0.5));">
+              <th style="padding: ${compact ? '2px' : '10px'}; border: none; text-align: center; color: white; font-weight: bold;">Título</th>
+              <th style="padding: ${compact ? '2px' : '10px'}; border: none; color: white; font-weight: bold;">Valor (mm)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${inspection.tireInspection.measurements.map((measurement) => `
+              <tr>
+                <td style="padding: ${compact ? '2px' : '8px'}; border: 1px solid rgba(224,224,224,0.4); text-align: center; font-weight: bold; background: rgba(248,249,250,0.3);">
+                  ${measurement.title}
+                </td>
+                <td style="padding: ${compact ? '2px' : '8px'}; border: 1px solid rgba(224,224,224,0.4); text-align: center; font-weight: bold; color: #222; background: rgba(255,255,255,0.3);">
+                  ${typeof measurement.value === 'number' ? measurement.value.toFixed(2) : '-'}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              ${inspection.tireInspection.measurements.map((measurement) => `
-                <tr>
-                  <td style="padding: 12px; border: 1px solid #e0e0e0; text-align: center; font-weight: bold; background: #f8f9fa;">
-                    ${measurement.title}
-                  </td>
-                  <td style="padding: 12px; border: 1px solid #e0e0e0; text-align: center; font-weight: bold; color: #222;">
-                    ${typeof measurement.value === 'number' ? measurement.value.toFixed(2) : '-'}
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        ` : '<p style="text-align: center; color: #666; font-style: italic;">No se realizaron mediciones de llantas.</p>'}
+            `).join('')}
+          </tbody>
+        </table>
       </div>
     `;
   };
+
+  const generateBatteryAndBrakeHTML = (inspection: InspectionForm) => {
+    if (!inspection.tireInspection) return '';
+    let html = '';
+    if (inspection.tireInspection.batteryStatus) {
+      html += `<div style="margin: 6px 0 2px 0; font-size:9px; background: #f8f9fa; border-radius: 6px; padding: 6px; border: 1px solid #e0e0e0;">
+        <b>🔋 Estado de Batería:</b> ${inspection.tireInspection.batteryStatus.percentage}%<br/>
+        ${inspection.tireInspection.batteryStatus.observations ? `<span style='color:#666;'>${inspection.tireInspection.batteryStatus.observations}</span>` : ''}
+      </div>`;
+    }
+    if (inspection.tireInspection.brakeFluidLevel) {
+      html += `<div style="margin: 2px 0 2px 0; font-size:9px; background: #f8f9fa; border-radius: 6px; padding: 6px; border: 1px solid #e0e0e0;">
+        <b>🛑 Estado de Líquido de Frenos:</b> ${inspection.tireInspection.brakeFluidLevel.level}<br/>
+        ${inspection.tireInspection.brakeFluidLevel.observations ? `<span style='color:#666;'>${inspection.tireInspection.brakeFluidLevel.observations}</span>` : ''}
+      </div>`;
+    }
+    return html;
+  };
+
+  // Función para generar HTML de inspección fotográfica
+  const generatePhotoInspectionHTML = (inspection: InspectionForm) => {
+    if (!inspection.inspectionPhotos || inspection.inspectionPhotos.length === 0) {
+      return '';
+    }
+
+    // Agrupar fotos en pares (máximo 2 por hoja)
+    const photoPairs = [];
+    for (let i = 0; i < inspection.inspectionPhotos.length; i += 2) {
+      photoPairs.push(inspection.inspectionPhotos.slice(i, i + 2));
+    }
+
+    let html = '';
+    photoPairs.forEach((pair, index) => {
+      html += `
+        <div class="container page-break" style="position: relative;">
+          ${watermarkBase64 ? `<img src="${watermarkBase64}" class="watermark" alt="Marca de Agua" />` : ''}
+          <div class="section-title">📸 INSPECCIÓN FOTOGRÁFICA - Página ${index + 1}</div>
+          <div style="display: flex; gap: 20px; margin-top: 20px;">
+      `;
+      
+      pair.forEach((photo) => {
+        html += `
+          <div style="flex: 1; background: #f8f9fa; border-radius: 12px; padding: 15px; border: 1px solid #e0e0e0;">
+            <div style="text-align: center; margin-bottom: 15px;">
+              <img src="${photo.uri}" 
+                   style="width: 100%; max-width: 300px; height: 200px; border-radius: 8px; object-fit: cover;" 
+                   alt="Foto ${photo.label}" />
+            </div>
+            <div style="text-align: center;">
+              <h4 style="margin: 0 0 10px 0; color: #FF0000; font-size: 16px;">Foto #${photo.label}</h4>
+              ${photo.observations ? `<p style="margin: 0; color: #666; font-size: 14px; line-height: 1.4;">${photo.observations}</p>` : ''}
+              <p style="margin: 10px 0 0 0; color: #999; font-size: 12px;">
+                ${photo.timestamp ? photo.timestamp.toLocaleDateString('es-CO') : 'Sin fecha'}
+              </p>
+            </div>
+          </div>
+        `;
+      });
+
+      // Si solo hay una foto en el par, agregar espacio vacío
+      if (pair.length === 1) {
+        html += `<div style="flex: 1;"></div>`;
+      }
+
+      html += `
+          </div>
+        </div>
+      `;
+    });
+
+    return html;
+  };
+
+  // Logs para debugging
+  console.log('PDF Generator - Inspection data:', {
+    hasBodyInspection: !!inspection.bodyInspection,
+    hasTireInspection: !!inspection.tireInspection,
+    bodyInspectionImage: inspection.bodyInspection?.capturedImage ? 'Present' : 'Missing',
+    tireInspectionImage: inspection.tireInspection?.capturedImage ? 'Present' : 'Missing',
+    bodyInspectionPoints: inspection.bodyInspection?.points?.length || 0,
+    tireInspectionMeasurements: inspection.tireInspection?.measurements?.length || 0
+  });
 
   return `
 <!DOCTYPE html>
@@ -541,21 +611,60 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
     .company-info h2 { margin: 0 0 4px 0; font-size: 22px; }
     .company-info p { margin: 0; font-size: 13px; color: #444; }
     .report-title { text-align: center; font-size: 20px; font-weight: bold; margin: 18px 0 12px 0; letter-spacing: 1px; }
-    .section-title { background: #f0f0f0; padding: 8px 12px; font-size: 16px; font-weight: bold; margin: 24px 0 8px 0; border-radius: 6px; }
-    .info-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
-    .info-table th, .info-table td { border: 1px solid #ddd; padding: 7px 10px; font-size: 13px; }
-    .info-table th { background: #f8f9fa; font-weight: bold; color: #333; }
+    .section-title { background: rgba(240, 240, 240, 0.7); padding: 8px 12px; font-size: 16px; font-weight: bold; margin: 24px 0 8px 0; border-radius: 6px; }
+    .info-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; background: rgba(255, 255, 255, 0.6); }
+    .info-table th, .info-table td { border: 1px solid rgba(221, 221, 221, 0.6); padding: 7px 10px; font-size: 13px; background: rgba(255, 255, 255, 0.4); }
+    .info-table th { background: rgba(248, 249, 250, 0.5); font-weight: bold; color: #333; }
     .diagnostico-list { margin: 0 0 12px 18px; font-size: 14px; }
     .aprobado-btn, .noaprobado-btn { display: inline-block; padding: 8px 24px; border-radius: 18px; font-weight: bold; font-size: 15px; margin-right: 10px; }
     .aprobado-btn { background: #4CAF50; color: #fff; }
     .noaprobado-btn { background: #FF0000; color: #fff; }
     .page-break { page-break-before: always; }
     .footer { margin-top: 32px; text-align: center; font-size: 12px; color: #888; }
+    .page-footer { 
+      position: fixed; 
+      bottom: 10px; 
+      left: 0; 
+      right: 0; 
+      text-align: center; 
+      font-size: 10px; 
+      color: #666; 
+      background: rgba(255, 255, 255, 0.9); 
+      padding: 5px; 
+      border-top: 1px solid #e0e0e0;
+    }
+    .legal-disclaimer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 8px 15px;
+      border-top: 1px solid #e0e0e0;
+      font-size: 8px;
+      color: #666;
+      line-height: 1.2;
+      text-align: center;
+      z-index: 1000;
+    }
+    .watermark { 
+      position: absolute; 
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      opacity: 0.2; 
+      z-index: -1; 
+      max-width: 400px; 
+      max-height: 300px; 
+      pointer-events: none; 
+      width: auto;
+      height: auto;
+    }
   </style>
 </head>
 <body>
-  <!-- PRIMERA PÁGINA: Logo, título, ingreso, items, sugerencias, precio, resultado -->
-  <div class="container">
+  <!-- HOJA 1: Datos de empresa, información de ingreso, datos del vehículo, valor sugerido, RUNT completo, sugerencias de diagnóstico -->
+  <div class="container" style="position: relative;">
     ${watermarkBase64 ? `<img src="${watermarkBase64}" class="watermark" alt="Marca de Agua" />` : ''}
     <div class="header">
       ${logoBase64 ? `<img src="${logoBase64}" class="company-logo" alt="Logo">` : ''}
@@ -566,63 +675,103 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
         ${settings.companyEmail ? `<p>${settings.companyEmail}</p>` : ''}
       </div>
     </div>
-    <div class="report-title">REVISION TECNICA - INGRESO VEHICULAR</div>
+    <div class="report-title">REVISION TECNICA INGRESO VEHICULAR</div>
     <div class="section-title">📅 INFORMACIÓN DE INGRESO</div>
     <table class="info-table">
       <tr><th>Fecha Ingreso</th><td>${inspection.fechaIngreso || ''}</td><th>Hora Ingreso</th><td>${inspection.horaIngreso || ''}</td></tr>
+      <tr><th>Propietario</th><td>${inspection.vehicleInfo.ownerName || ''}</td><th>Teléfono</th><td>${inspection.vehicleInfo.ownerPhone || ''}</td></tr>
     </table>
-    <div class="section-title">🔍 ITEMS DE INSPECCIÓN</div>
-    ${generateInspectionItemsHTML(inspection)}
+    
+    <div class="section-title">🚗 DATOS DEL VEHÍCULO</div>
+    <table class="info-table">
+      <tr><th>Placa</th><td>${inspection.vehicleInfo.plate || ''}</td><th>Marca</th><td>${inspection.vehicleInfo.brand || ''}</td></tr>
+      <tr><th>Modelo</th><td>${inspection.vehicleInfo.model || ''}</td><th>Color</th><td>${inspection.vehicleInfo.color || ''}</td></tr>
+      <tr><th>Año</th><td>${inspection.vehicleInfo.year || ''}</td><th>Tipo de Carrocería</th><td>${inspection.vehicleInfo.bodyType === 'sedan' ? 'Sedán' : inspection.vehicleInfo.bodyType === 'suv' ? 'SUV' : inspection.vehicleInfo.bodyType === 'pickup' ? 'Pickup' : 'N/A'}</td></tr>
+    </table>
+    
+    <div class="section-title">💲 PRECIO SUGERIDO</div>
+    <p style="font-size: 16px; font-weight: bold; color: #222;">${inspection.precioSugerido ? `$${inspection.precioSugerido}` : 'No ingresado'}</p>
+    
+    <div class="section-title">📋 DATOS RUNT COMPLETOS</div>
+    <table class="info-table">
+      <tr><th>Multas SIMIT</th><td>${inspection.vehicleHistory?.simitFines || ''}</td><th>Pignoración</th><td>${inspection.vehicleHistory?.pignoracion || ''}</td></tr>
+      <tr><th>Timbre</th><td>${inspection.vehicleHistory?.timbreValue || ''}</td><th>Imp. Gobernación</th><td>${inspection.vehicleHistory?.governorTax?.status || ''} ${inspection.vehicleHistory?.governorTax?.status === 'DEBE' && inspection.vehicleHistory?.governorTax?.amount ? `- $${inspection.vehicleHistory.governorTax.amount}` : ''}</td></tr>
+      <tr><th>Imp. Movilidad</th><td>${inspection.vehicleHistory?.mobilityTax?.status || ''} ${inspection.vehicleHistory?.mobilityTax?.status === 'DEBE' && inspection.vehicleHistory?.mobilityTax?.amount ? `- $${inspection.vehicleHistory.mobilityTax.amount}` : ''}</td><th>SOAT</th><td>${inspection.vehicleHistory?.soatExpiry?.month || ''} ${inspection.vehicleHistory?.soatExpiry?.year || ''}</td></tr>
+      <tr><th>Tecnomecánica</th><td>${inspection.vehicleHistory?.technicalExpiry?.applies === 'No' ? 'No aplica' : (inspection.vehicleHistory?.technicalExpiry?.month && inspection.vehicleHistory?.technicalExpiry?.year ? `${inspection.vehicleHistory.technicalExpiry.month} ${inspection.vehicleHistory.technicalExpiry.year}` : 'N/A')}</td><th>Cilindraje</th><td>${inspection.vehicleHistory?.engineDisplacement || ''}</td></tr>
+      <tr><th>Combustible</th><td>${inspection.vehicleHistory?.fuelType || ''} ${inspection.vehicleHistory?.fuelType === 'Otro' && inspection.vehicleHistory?.otherFuelType ? `(${inspection.vehicleHistory.otherFuelType})` : ''}</td><th>Kilometraje</th><td>${inspection.vehicleHistory?.mileage || ''}</td></tr>
+      <tr><th>Matriculado en</th><td>${inspection.vehicleHistory?.registrationCity || ''}</td><th>Fasecolda</th><td>${inspection.vehicleHistory?.fasecoldaReports || ''}</td></tr>
+    </table>
+    
     <div class="section-title">💡 SUGERENCIAS DE DIAGNÓSTICO</div>
     <ul class="diagnostico-list">
       ${(inspection.sugerenciasDiagnostico && inspection.sugerenciasDiagnostico.length > 0)
         ? inspection.sugerenciasDiagnostico.map(s => `<li>${s}</li>`).join('')
         : '<li>No hay sugerencias registradas.</li>'}
     </ul>
-    <div class="section-title">💲 PRECIO SUGERIDO</div>
-    <p style="font-size: 16px; font-weight: bold; color: #222;">${inspection.precioSugerido ? `$${inspection.precioSugerido}` : 'No ingresado'}</p>
-    <div class="section-title">✅ RESULTADO DE INSPECCIÓN</div>
-    <div style="margin-bottom: 20px;">
-      ${inspection.resultadoInspeccion === 'approved'
-        ? '<span class="aprobado-btn">Aprobado</span>'
-        : inspection.resultadoInspeccion === 'rejected'
-          ? '<span class="noaprobado-btn">No Aprobado</span>'
-          : '<span style="color:#888;">Sin resultado</span>'}
+    
+    <div style="margin: 24px 0 0 0; text-align: center;">
+      ${(() => {
+        const res = inspection.resultadoInspeccion;
+        if (res === 'approved') {
+          return `<div style=\"display:inline-block;background:rgba(76,175,80,0.15);border:2px solid #4CAF50;color:#4CAF50;padding:18px 32px;border-radius:16px;font-size:22px;font-weight:bold;box-shadow:0 2px 8px rgba(76,175,80,0.08);margin-bottom:10px;\">✔️ Aprobado</div>`;
+        } else if (res === 'rejected') {
+          return `<div style=\"display:inline-block;background:rgba(255,0,0,0.12);border:2px solid #FF0000;color:#FF0000;padding:18px 32px;border-radius:16px;font-size:22px;font-weight:bold;box-shadow:0 2px 8px rgba(255,0,0,0.08);margin-bottom:10px;\">❌ No Aprobado</div>`;
+        } else if (res === 'conditional') {
+          return `<div style=\"display:inline-block;background:rgba(255,152,0,0.12);border:2px solid #FF9800;color:#FF9800;padding:18px 32px;border-radius:16px;font-size:22px;font-weight:bold;box-shadow:0 2px 8px rgba(255,152,0,0.08);margin-bottom:10px;\">⚠️ Condicional</div>`;
+        } else {
+          return `<div style=\"display:inline-block;background:rgba(136,136,136,0.10);border:2px solid #888;color:#888;padding:18px 32px;border-radius:16px;font-size:22px;font-weight:bold;box-shadow:0 2px 8px rgba(136,136,136,0.08);margin-bottom:10px;\">N/A</div>`;
+        }
+      })()}
+    </div>
+
+  </div>
+
+  <!-- HOJA 2: Items de inspección - Luces y Exterior -->
+  <div class="container page-break" style="position: relative;">
+    ${watermarkBase64 ? `<img src="${watermarkBase64}" class="watermark" alt="Marca de Agua" />` : ''}
+    <div class="section-title">🔍 ITEMS DE INSPECCIÓN - LUCES Y EXTERIOR</div>
+    ${generateInspectionItemsHTML(inspection, 'Luces y Exterior')}
+  </div>
+
+  <!-- HOJA 3: Items de inspección - Motor y Soportes, Interior del Vehículo -->
+  <div class="container page-break" style="position: relative;">
+    ${watermarkBase64 ? `<img src="${watermarkBase64}" class="watermark" alt="Marca de Agua" />` : ''}
+    <div class="section-title">🔧 ITEMS DE INSPECCIÓN - MOTOR Y SOPORTES</div>
+    ${generateInspectionItemsHTML(inspection, 'Motor y Soportes')}
+    
+    <div class="section-title">🚪 ITEMS DE INSPECCIÓN - INTERIOR DEL VEHÍCULO</div>
+    ${generateInspectionItemsHTML(inspection, 'Interior del Vehículo')}
+  </div>
+
+  <!-- HOJA 4: Inspección de Carrocería e Inspección de Llantas -->
+  <div class="container page-break" style="position: relative; min-height: 600px;">
+    ${watermarkBase64 ? `<img src="${watermarkBase64}" class="watermark" alt="Marca de Agua" />` : ''}
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: flex-start;">
+      <div style="flex: 1 1 320px; min-width: 180px; max-width: 48%;">
+        ${inspection.bodyInspection ? await generateBodyInspectionHTML(inspection, true) : ''}
+      </div>
+      <div style="flex: 1 1 320px; min-width: 180px; max-width: 48%;">
+        ${inspection.tireInspection ? await generateTireInspectionHTML(inspection, true) : ''}
+        ${generateBatteryAndBrakeHTML(inspection)}
+      </div>
     </div>
   </div>
 
-  <!-- SEGUNDA PÁGINA: Información del vehículo y RUNT (sin logo ni título) -->
-  <div class="container page-break">
-    <div class="report-title">INFORMACIÓN DEL VEHÍCULO</div>
-    <div class="section-title">🚗 DATOS DEL VEHÍCULO</div>
-    <table class="info-table">
-      <tr><th>Placa</th><td>${inspection.vehicleInfo.plate || ''}</td><th>Propietario</th><td>${inspection.vehicleInfo.ownerName || ''}</td></tr>
-      <tr><th>Marca</th><td>${inspection.vehicleInfo.brand || ''}</td><th>Modelo</th><td>${inspection.vehicleInfo.model || ''}</td></tr>
-      <tr><th>Color</th><td>${inspection.vehicleInfo.color || ''}</td><th>Año</th><td>${inspection.vehicleInfo.year || ''}</td></tr>
-      <tr><th>Teléfono</th><td>${inspection.vehicleInfo.ownerPhone || ''}</td><th>Tipo de Carrocería</th><td>${inspection.vehicleInfo.bodyType === 'sedan' ? 'Sedán' : inspection.vehicleInfo.bodyType === 'suv' ? 'SUV' : inspection.vehicleInfo.bodyType === 'pickup' ? 'Pickup' : 'N/A'}</td></tr>
-    </table>
-    <div class="section-title">📋 DATOS RUNT</div>
-    <table class="info-table">
-      <tr><th>Multas SIMIT</th><td>${inspection.vehicleHistory?.simitFines || ''}</td><th>Pignoración</th><td>${inspection.vehicleHistory?.pignoracion || ''}</td></tr>
-      <tr><th>Timbre</th><td>${inspection.vehicleHistory?.timbreValue || ''}</td><th>Imp. Gobernación</th><td>${inspection.vehicleHistory?.governorTax?.status || ''}</td></tr>
-      <tr><th>Imp. Movilidad</th><td>${inspection.vehicleHistory?.mobilityTax?.status || ''}</td><th>SOAT</th><td>${inspection.vehicleHistory?.soatExpiry?.month || ''} ${inspection.vehicleHistory?.soatExpiry?.year || ''}</td></tr>
-      <tr><th>Tecnomecánica</th><td>${inspection.vehicleHistory?.technicalExpiry?.month || ''} ${inspection.vehicleHistory?.technicalExpiry?.year || ''}</td><th>Cilindraje</th><td>${inspection.vehicleHistory?.engineDisplacement || ''}</td></tr>
-      <tr><th>Combustible</th><td>${inspection.vehicleHistory?.fuelType || ''}</td><th>Kilometraje</th><td>${inspection.vehicleHistory?.mileage || ''}</td></tr>
-      <tr><th>Matriculado en</th><td>${inspection.vehicleHistory?.registrationCity || ''}</td><th>Fasecolda</th><td>${inspection.vehicleHistory?.fasecoldaReports || ''}</td></tr>
-    </table>
-  </div>
+  <!-- HOJA 5+: Inspección Fotográfica (máximo 2 fotos por hoja) -->
+  ${generatePhotoInspectionHTML(inspection)}
 
-  <!-- TERCERA PÁGINA: Inspección de Carrocería (si existe) -->
-  ${inspection.bodyInspection ? `<div class="container page-break">${generateBodyInspectionHTML(inspection)}</div>` : ''}
-
-  <!-- CUARTA PÁGINA: Inspección de Llantas (si existe) -->
-  ${inspection.tireInspection ? `<div class="container page-break">${generateTireInspectionHTML(inspection)}</div>` : ''}
-
-  <div class="footer">
+  <div class="footer" style="position: relative;">
+    ${watermarkBase64 ? `<img src="${watermarkBase64}" class="watermark" alt="Marca de Agua" />` : ''}
     <p><strong>${settings.companyName || 'MTinspector'}</strong> - Sistema de Inspección Vehicular Profesional</p>
     <p>Este documento es generado automáticamente por el sistema de inspección vehicular.</p>
     <p>Fecha de generación: ${new Date().toLocaleDateString('es-CO')} - Documento válido por 30 días desde la fecha de inspección.</p>
   </div>
+ 
+ <!-- Disclaimer legal en pie de página de cada página -->
+ <div class="legal-disclaimer">
+   <strong>El presente formato de revisión vehicular corresponde meramente a historial de MT AUTOS y no constituye un peritaje certificado según las disposiciones legales colombianas.</strong><br>
+   Este documento no es válido para la compra o reclamaciones futuras por revisiones efectuadas al vehículo después de su emisión.
+ </div>
 </body>
 </html>
 `;

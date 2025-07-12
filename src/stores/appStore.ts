@@ -7,6 +7,7 @@ import {
   VehicleHistory,
   InspectionItem, 
   PhotoData, 
+  InspectionPhoto,
   AppSettings,
   ReportTemplate,
   BodyInspection,
@@ -32,6 +33,9 @@ interface AppState {
   removePhoto: (photoId: string) => void;
   updateBodyInspection: (bodyInspection: BodyInspection) => void;
   updateTireInspection: (tireInspection: TireInspection) => void;
+  addInspectionPhoto: (photo: InspectionPhoto) => void;
+  removeInspectionPhoto: (photoId: string) => void;
+  updateInspectionPhoto: (photoId: string, updates: Partial<InspectionPhoto>) => void;
   saveInspection: () => void;
   loadInspection: (inspectionId: string) => void;
   deleteInspection: (inspectionId: string) => void;
@@ -190,15 +194,64 @@ export const useAppStore = create<AppState>()(
         console.log('AppStore - updateTireInspection called with:', tireInspection);
         const { currentInspection } = get();
         if (currentInspection) {
+          const updatedInspection = {
+            ...currentInspection,
+            tireInspection
+          };
+          console.log('AppStore - updatedInspection a guardar:', updatedInspection);
+          
           set({
-            currentInspection: {
-              ...currentInspection,
-              tireInspection
-            }
+            currentInspection: updatedInspection
           });
+          
+          // Verificar que se guardó correctamente
+          setTimeout(() => {
+            const newState = get();
+            console.log('AppStore - currentInspection después de updateTireInspection:', newState.currentInspection);
+            console.log('AppStore - tireInspection después de updateTireInspection:', newState.currentInspection?.tireInspection);
+          }, 100);
+          
           console.log('AppStore - tireInspection updated successfully');
         } else {
           console.log('AppStore - No currentInspection to update');
+        }
+      },
+
+      addInspectionPhoto: (photo) => {
+        const { currentInspection } = get();
+        if (currentInspection) {
+          set({
+            currentInspection: {
+              ...currentInspection,
+              inspectionPhotos: [...(currentInspection.inspectionPhotos || []), photo]
+            }
+          });
+        }
+      },
+
+      removeInspectionPhoto: (photoId) => {
+        const { currentInspection } = get();
+        if (currentInspection) {
+          set({
+            currentInspection: {
+              ...currentInspection,
+              inspectionPhotos: (currentInspection.inspectionPhotos || []).filter(photo => photo.id !== photoId)
+            }
+          });
+        }
+      },
+
+      updateInspectionPhoto: (photoId, updates) => {
+        const { currentInspection } = get();
+        if (currentInspection) {
+          set({
+            currentInspection: {
+              ...currentInspection,
+              inspectionPhotos: (currentInspection.inspectionPhotos || []).map(photo =>
+                photo.id === photoId ? { ...photo, ...updates } : photo
+              )
+            }
+          });
         }
       },
 
@@ -234,7 +287,14 @@ export const useAppStore = create<AppState>()(
             ...inspection,
             inspectionDate: inspection.inspectionDate instanceof Date 
               ? inspection.inspectionDate 
-              : new Date(inspection.inspectionDate)
+              : new Date(inspection.inspectionDate),
+            // Convertir timestamps de fotos de inspección
+            inspectionPhotos: inspection.inspectionPhotos?.map(photo => ({
+              ...photo,
+              timestamp: photo.timestamp instanceof Date 
+                ? photo.timestamp 
+                : photo.timestamp ? new Date(photo.timestamp) : new Date()
+            })) || []
           };
           set({ currentInspection: inspectionWithDate });
         }
@@ -329,6 +389,7 @@ export const useAppStore = create<AppState>()(
         settings: state.settings,
         savedInspections: state.savedInspections,
         templates: state.templates,
+        currentInspection: state.currentInspection,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
@@ -338,8 +399,32 @@ export const useAppStore = create<AppState>()(
               ...inspection,
               inspectionDate: inspection.inspectionDate instanceof Date 
                 ? inspection.inspectionDate 
-                : new Date(inspection.inspectionDate)
+                : new Date(inspection.inspectionDate),
+              // Convertir timestamps de fotos de inspección
+              inspectionPhotos: inspection.inspectionPhotos?.map(photo => ({
+                ...photo,
+                timestamp: photo.timestamp instanceof Date 
+                  ? photo.timestamp 
+                  : photo.timestamp ? new Date(photo.timestamp) : new Date()
+              })) || []
             }));
+          }
+          
+          // Convertir fecha de currentInspection si existe
+          if (state.currentInspection) {
+            state.currentInspection = {
+              ...state.currentInspection,
+              inspectionDate: state.currentInspection.inspectionDate instanceof Date 
+                ? state.currentInspection.inspectionDate 
+                : new Date(state.currentInspection.inspectionDate),
+              // Convertir timestamps de fotos de inspección
+              inspectionPhotos: state.currentInspection.inspectionPhotos?.map(photo => ({
+                ...photo,
+                timestamp: photo.timestamp instanceof Date 
+                  ? photo.timestamp 
+                  : photo.timestamp ? new Date(photo.timestamp) : new Date()
+              })) || []
+            };
           }
         }
       },

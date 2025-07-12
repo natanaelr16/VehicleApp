@@ -162,7 +162,8 @@ const BodyInspectionScreen: React.FC<BodyInspectionScreenProps> = ({ route }) =>
             format: 'png',
             quality: 0.9,
             width: IMAGE_WIDTH,
-            height: IMAGE_HEIGHT
+            height: IMAGE_HEIGHT,
+            result: 'base64'
           }}
         >
           <View

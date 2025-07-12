@@ -454,16 +454,17 @@ const InspectionFormScreen: React.FC = () => {
             >
               <Text style={styles.tireInspectionButtonText}>Inspección de ruedas</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.photoInspectionButton}
+              onPress={() => (navigation as any).navigate('PhotoInspection')}
+            >
+              <Text style={styles.photoInspectionButtonText}>📸 Inspección Fotográfica</Text>
+            </TouchableOpacity>
           </View>
         ) : activeTab === 'history' || showRuntMenu ? (
           <View style={{ flex: 1 }}>
             <Animated.View
               style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                zIndex: 10,
                 opacity: runtAnim,
                 transform: [
                   {
@@ -477,7 +478,7 @@ const InspectionFormScreen: React.FC = () => {
             >
               <VehicleHistoryMenuTabs activeTab={runtTab} setActiveTab={setRuntTab} />
             </Animated.View>
-            <View style={{ flex: 1, marginTop: 110 }}>
+            <View style={{ flex: 1, marginTop: 10 }}>
               <VehicleHistoryTabContent activeTab={runtTab} />
             </View>
           </View>
@@ -914,6 +915,18 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   tireInspectionButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  photoInspectionButton: {
+    backgroundColor: '#FF0000',
+    padding: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  photoInspectionButtonText: {
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,

@@ -15,6 +15,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useAppStore } from '../stores/appStore';
 import ViewShot from 'react-native-view-shot';
+import { TireInspection } from '../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_WIDTH = SCREEN_WIDTH - 40;
@@ -49,6 +50,12 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
   // Estado para el modal de opciones (editar/eliminar)
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
   const [selectedTireForOptions, setSelectedTireForOptions] = useState<{pos: typeof tirePositions[0], measurement: TireMeasurement} | null>(null);
+  
+  // Estados para batería y líquido de frenos
+  const [batteryPercentage, setBatteryPercentage] = useState<number>(0);
+  const [batteryObservations, setBatteryObservations] = useState<string>('');
+  const [brakeFluidLevel, setBrakeFluidLevel] = useState<number>(0);
+  const [brakeFluidObservations, setBrakeFluidObservations] = useState<string>('');
 
   // 2. Definir posiciones y nombres exactos
   const tirePositions: Array<{id: string, x: number, y: number, title: string}> = [
@@ -68,12 +75,29 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
 
   // Sincronizar mediciones cuando cambie la inspección actual
   useEffect(() => {
+    console.log('useEffect - currentInspection:', currentInspection);
+    console.log('useEffect - tireInspection:', currentInspection?.tireInspection);
+    console.log('useEffect - measurements del store:', currentInspection?.tireInspection?.measurements);
+    
     if (currentInspection?.tireInspection?.measurements) {
+      console.log('useEffect - cargando measurements del store:', currentInspection.tireInspection.measurements);
       setMeasurements(currentInspection.tireInspection.measurements);
     } else {
+      console.log('useEffect - no hay measurements, inicializando array vacío');
       setMeasurements([]);
     }
-  }, [currentInspection?.tireInspection?.measurements]);
+
+    // Cargar datos de batería y líquido de frenos
+    if (currentInspection?.tireInspection?.batteryStatus) {
+      setBatteryPercentage(currentInspection.tireInspection.batteryStatus.percentage);
+      setBatteryObservations(currentInspection.tireInspection.batteryStatus.observations);
+    }
+    
+    if (currentInspection?.tireInspection?.brakeFluidLevel) {
+      setBrakeFluidLevel(currentInspection.tireInspection.brakeFluidLevel.level);
+      setBrakeFluidObservations(currentInspection.tireInspection.brakeFluidLevel.observations);
+    }
+  }, [currentInspection?.tireInspection]);
 
   // Obtener posiciones disponibles (no usadas)
   const getAvailablePositions = () => {
@@ -145,14 +169,21 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
       return;
     }
     if (selectedPosition) {
+      console.log('handleAddMeasurement - selectedPosition:', selectedPosition);
+      console.log('handleAddMeasurement - value a agregar:', value);
+      console.log('handleAddMeasurement - measurements antes:', measurements);
+      
       // Actualizar la medición existente con el valor
-      setMeasurements(prev => 
-        prev.map(m => 
+      setMeasurements(prev => {
+        const updated = prev.map(m => 
           m.id === selectedPosition.id 
             ? { ...m, value }
             : m
-        )
-      );
+        );
+        console.log('handleAddMeasurement - measurements después:', updated);
+        return updated;
+      });
+      
       setSelectedPosition(null);
       setValueInput('');
       setModalVisible(false);
@@ -178,6 +209,9 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
 
   const handleSave = async () => {
     try {
+      console.log('handleSave - measurements antes de guardar:', measurements);
+      console.log('handleSave - currentInspection:', currentInspection);
+      
       let capturedImage: string | undefined = undefined;
       
       // Capturar la imagen si hay mediciones
@@ -192,11 +226,37 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
       }
       
       if (currentInspection) {
-        updateTireInspection({
+        const tireInspectionData: TireInspection = {
           measurements,
           vehicleType,
-          capturedImage
-        });
+          capturedImage,
+          batteryStatus: {
+            percentage: batteryPercentage,
+            observations: batteryObservations
+          },
+          brakeFluidLevel: {
+            level: brakeFluidLevel,
+            observations: brakeFluidObservations
+          }
+        };
+        
+        console.log('handleSave - tireInspectionData a guardar:', tireInspectionData);
+        
+        updateTireInspection(tireInspectionData);
+        
+        // Forzar el guardado de la inspección actual
+        useAppStore.getState().saveInspection();
+        
+        // Verificar que se guardó correctamente
+        setTimeout(() => {
+          const updatedInspection = useAppStore.getState().currentInspection;
+          console.log('handleSave - currentInspection después de guardar:', updatedInspection);
+          console.log('handleSave - tireInspection después de guardar:', updatedInspection?.tireInspection);
+        }, 100);
+      } else {
+        console.error('handleSave - No hay currentInspection');
+        Alert.alert('Error', 'No hay una inspección activa para guardar.');
+        return;
       }
       
       Alert.alert('Mediciones guardadas', 'Las mediciones de llantas han sido guardadas.');
@@ -257,8 +317,13 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
   // Handler para eliminar medición
   const handleDeleteMeasurement = () => {
     if (selectedTireForOptions) {
-      const posId = selectedTireForOptions.pos.id;
-      setMeasurements(measurements.filter((meas: TireMeasurement) => meas.position !== posId));
+      const measurementId = selectedTireForOptions.measurement.id;
+      console.log('handleDeleteMeasurement - eliminando medición con id:', measurementId);
+      setMeasurements(prev => {
+        const filtered = prev.filter((meas: TireMeasurement) => meas.id !== measurementId);
+        console.log('handleDeleteMeasurement - mediciones después de eliminar:', filtered);
+        return filtered;
+      });
       setOptionsModalVisible(false);
       setSelectedTireForOptions(null);
     }
@@ -276,7 +341,10 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
       
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.instructions}>
-          Toca en cualquier lugar de la imagen para marcar una llanta (máximo 4). Mantén presionado una llanta para editar o eliminar.
+          Toca en cualquier lugar de la imagen para marcar una llanta (máximo 4). 
+          {'\n'}• Toca una llanta para editar su valor
+          {'\n'}• Mantén presionado una llanta para opciones avanzadas
+          {'\n'}• Usa los botones "Eliminar" en la lista para eliminar mediciones individuales
         </Text>
         
         <View style={styles.imageContainer}>
@@ -286,7 +354,8 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
               format: 'png',
               quality: 0.9,
               width: IMAGE_WIDTH,
-              height: IMAGE_HEIGHT
+              height: IMAGE_HEIGHT,
+              result: 'base64'
             }}
           >
             <Pressable onPress={handleImagePress} style={{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT }}>
@@ -366,15 +435,76 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
         {/* Lista de mediciones */}
         {measurements.length > 0 && (
           <View style={styles.measurementsList}>
-            <Text style={styles.measurementsTitle}>Llantas Registradas:</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={styles.measurementsTitle}>Llantas Registradas:</Text>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#FF6B35',
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 6
+                }}
+                onPress={() => {
+                  Alert.alert(
+                    'Eliminar todas las mediciones',
+                    '¿Deseas eliminar todas las mediciones de llantas?',
+                    [
+                      { text: 'Cancelar', style: 'cancel' },
+                      {
+                        text: 'Eliminar Todas',
+                        style: 'destructive',
+                        onPress: () => {
+                          console.log('Eliminando todas las mediciones');
+                          setMeasurements([]);
+                        },
+                      },
+                    ]
+                  );
+                }}
+              >
+                <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>Eliminar Todas</Text>
+              </TouchableOpacity>
+            </View>
             {measurements.map((measurement) => (
               <View key={measurement.id} style={styles.measurementItem}>
-                <Text style={styles.measurementItemTitle}>{measurement.title}</Text>
-                <Text style={styles.measurementItemText}>Valor: {measurement.value.toFixed(2)}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.measurementItemTitle}>{measurement.title}</Text>
+                  <Text style={styles.measurementItemText}>Valor: {measurement.value.toFixed(2)}</Text>
+                </View>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: '#FF0000',
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 6,
+                    marginLeft: 10
+                  }}
+                  onPress={() => {
+                    Alert.alert(
+                      'Eliminar medición',
+                      `¿Deseas eliminar la medición de ${measurement.title}?`,
+                      [
+                        { text: 'Cancelar', style: 'cancel' },
+                        {
+                          text: 'Eliminar',
+                          style: 'destructive',
+                          onPress: () => {
+                            console.log('Eliminando medición:', measurement.id);
+                            setMeasurements(prev => prev.filter(m => m.id !== measurement.id));
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                >
+                  <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>Eliminar</Text>
+                </TouchableOpacity>
               </View>
             ))}
           </View>
         )}
+
+
 
         {/* Información de límite */}
         {measurements.length < 4 && (
@@ -382,6 +512,60 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
             <Text style={styles.availableTitle}>Puedes agregar {4 - measurements.length} llanta(s) más</Text>
           </View>
         )}
+
+        {/* Estado de Batería */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🔋 Estado de Batería</Text>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Porcentaje de carga (0-100%):</Text>
+            <TextInput
+              style={styles.input}
+              value={batteryPercentage.toString()}
+              onChangeText={(text) => setBatteryPercentage(parseInt(text) || 0)}
+              keyboardType="numeric"
+              placeholder="Ej: 85"
+              maxLength={3}
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Observaciones:</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={batteryObservations}
+              onChangeText={setBatteryObservations}
+              placeholder="Observaciones sobre el estado de la batería..."
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+        </View>
+
+        {/* Estado de Líquido de Frenos */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🛑 Estado de Líquido de Frenos</Text>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Nivel (ingrese el valor):</Text>
+            <TextInput
+              style={styles.input}
+              value={brakeFluidLevel.toString()}
+              onChangeText={(text) => setBrakeFluidLevel(parseInt(text) || 0)}
+              keyboardType="numeric"
+              placeholder="Ej: 75"
+              maxLength={3}
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Observaciones:</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={brakeFluidObservations}
+              onChangeText={setBrakeFluidObservations}
+              placeholder="Observaciones sobre el líquido de frenos..."
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+        </View>
       </ScrollView>
       
       <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
@@ -404,6 +588,32 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
             <View style={styles.modalButtons}>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalButtonCancel}>
                 <Text style={styles.modalButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={() => {
+                  Alert.alert(
+                    'Eliminar medición',
+                    '¿Deseas eliminar esta medición?',
+                    [
+                      { text: 'Cancelar', style: 'cancel' },
+                      {
+                        text: 'Eliminar',
+                        style: 'destructive',
+                        onPress: () => {
+                          if (selectedPosition) {
+                            setMeasurements(prev => prev.filter(m => m.id !== selectedPosition.id));
+                          }
+                          setModalVisible(false);
+                          setSelectedPosition(null);
+                          setValueInput('');
+                        },
+                      },
+                    ]
+                  );
+                }} 
+                style={[styles.modalButtonCancel, { backgroundColor: '#FF0000' }]}
+              >
+                <Text style={styles.modalButtonText}>Eliminar</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleAddMeasurement} style={styles.modalButtonAdd}>
                 <Text style={styles.modalButtonText}>Guardar</Text>
@@ -769,6 +979,47 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
     marginTop: 2,
+  },
+  section: {
+    backgroundColor: 'white',
+    margin: 15,
+    padding: 15,
+    borderRadius: 12,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 15,
+    borderBottomWidth: 2,
+    borderBottomColor: '#FF0000',
+    paddingBottom: 5,
+  },
+  inputContainer: {
+    marginBottom: 15,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6c757d',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#f8f9fa',
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
   },
 });
 

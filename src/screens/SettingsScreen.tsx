@@ -15,6 +15,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useAppStore } from '../stores/appStore';
 import { launchImageLibrary, launchCamera, ImagePickerResponse, MediaType, PhotoQuality } from 'react-native-image-picker';
+import { requestStoragePermissions } from '../utils/permissions';
 
 const SettingsScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -32,36 +33,26 @@ const SettingsScreen: React.FC = () => {
   };
 
   const requestGalleryPermission = async (): Promise<boolean> => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-          {
-            title: 'Permiso de Galería',
-            message: 'Esta app necesita acceso a la galería para seleccionar logos y marcas de agua.',
-            buttonNeutral: 'Preguntar después',
-            buttonNegative: 'Cancelar',
-            buttonPositive: 'OK',
-          }
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-      } catch (err) {
-        console.warn('Error solicitando permisos:', err);
-        return false;
-      }
-    }
-    return true; // En iOS, los permisos se solicitan automáticamente
+    return await requestStoragePermissions();
   };
 
-  const selectLogo = () => {
+  const selectLogo = async () => {
     console.log('Iniciando selección de logo...');
     
-    // Opciones más simples para probar
+    // Verificar permisos de almacenamiento
+    const hasPermission = await requestGalleryPermission();
+    if (!hasPermission) {
+      return;
+    }
+    
+    // Opciones optimizadas para logo de empresa en PDF
     const options = {
       mediaType: 'photo' as MediaType,
       includeBase64: false,
-      maxHeight: 2000,
-      maxWidth: 2000,
+      maxHeight: 300,
+      maxWidth: 400,
+      quality: 0.9 as PhotoQuality,
+      selectionLimit: 1,
     };
 
     console.log('Lanzando galería con opciones:', options);
@@ -94,15 +85,23 @@ const SettingsScreen: React.FC = () => {
     });
   };
 
-  const selectWatermark = () => {
+  const selectWatermark = async () => {
     console.log('Iniciando selección de marca de agua...');
     
-    // Opciones más simples para probar
+    // Verificar permisos de almacenamiento
+    const hasPermission = await requestGalleryPermission();
+    if (!hasPermission) {
+      return;
+    }
+    
+    // Opciones optimizadas para marca de agua en PDF
     const options = {
       mediaType: 'photo' as MediaType,
       includeBase64: false,
-      maxHeight: 2000,
-      maxWidth: 2000,
+      maxHeight: 600,
+      maxWidth: 800,
+      quality: 0.8 as PhotoQuality,
+      selectionLimit: 1,
     };
 
     console.log('Lanzando galería para marca de agua con opciones:', options);
@@ -211,7 +210,7 @@ const SettingsScreen: React.FC = () => {
                 ) : (
                   <View style={styles.logoPlaceholder}>
                     <Text style={styles.logoPlaceholderText}>+ Seleccionar Logo</Text>
-                    <Text style={styles.logoPlaceholderSubtext}>PNG, JPG hasta 2MB</Text>
+                    <Text style={styles.logoPlaceholderSubtext}>PNG, JPG - 400x300px máx</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -227,6 +226,7 @@ const SettingsScreen: React.FC = () => {
             <Text style={styles.helpText}>
               📱 Este logo aparecerá en la página principal de la app{'\n'}
               📄 También se incluirá en los reportes PDF{'\n'}
+              📏 Tamaño recomendado: 400x300px máximo{'\n'}
               💡 Toca "Seleccionar Logo" para elegir una imagen de tu galería
             </Text>
             
@@ -245,7 +245,7 @@ const SettingsScreen: React.FC = () => {
                 ) : (
                   <View style={styles.logoPlaceholder}>
                     <Text style={styles.logoPlaceholderText}>+ Seleccionar Marca de Agua</Text>
-                    <Text style={styles.logoPlaceholderSubtext}>PNG, JPG hasta 3MB</Text>
+                    <Text style={styles.logoPlaceholderSubtext}>PNG, JPG - 800x600px máx</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -258,7 +258,11 @@ const SettingsScreen: React.FC = () => {
                 </TouchableOpacity>
               )}
             </View>
-            <Text style={styles.helpText}>Esta imagen aparecerá como marca de agua en el centro de cada página del PDF</Text>
+            <Text style={styles.helpText}>
+              💧 Esta imagen aparecerá como marca de agua en el centro de cada página del PDF{'\n'}
+              📏 Tamaño recomendado: 800x600px máximo{'\n'}
+              🎨 Se recomienda usar imágenes con fondo transparente (PNG)
+            </Text>
           </View>
         </View>
 

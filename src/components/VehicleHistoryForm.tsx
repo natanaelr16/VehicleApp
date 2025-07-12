@@ -159,33 +159,9 @@ export const VehicleHistoryTabContent: React.FC<{activeTab: string}> = ({activeT
   const years = Array.from({ length: 10 }, (_, i) => (new Date().getFullYear() + i).toString());
 
   return (
-    <Animated.View 
-      style={[
-        styles.container,
-        {
-          opacity: fadeAnim,
-          transform: [{
-            translateY: slideAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [-50, 0],
-            }),
-          }],
-        },
-      ]}
-    >
+    <View style={styles.container}>
       <Animated.ScrollView 
-        style={[
-          styles.content, 
-          {
-            opacity: fadeAnim,
-            transform: [{
-              translateY: slideAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [30, 0],
-              }),
-            }],
-          },
-        ]} 
+        style={styles.content}
         showsVerticalScrollIndicator={false}
       >
         {activeTab === 'basic' && (
@@ -442,7 +418,7 @@ export const VehicleHistoryTabContent: React.FC<{activeTab: string}> = ({activeT
           </View>
         )}
       </Animated.ScrollView>
-    </Animated.View>
+    </View>
   );
 };
 
