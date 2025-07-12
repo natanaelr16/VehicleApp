@@ -12,9 +12,40 @@ import { Picker } from '@react-native-picker/picker';
 import { useAppStore } from '../stores/appStore';
 import { VehicleHistory } from '../types';
 
-const VehicleHistoryForm: React.FC = () => {
+export const VehicleHistoryMenuTabs: React.FC<{activeTab: string, setActiveTab: (tab: any) => void}> = ({activeTab, setActiveTab}) => (
+  <View style={styles.header}>
+    <Text style={styles.headerTitle}>📋 Historial del Vehículo (RUNT)</Text>
+    <View style={styles.tabContainer}>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'basic' && styles.activeTab]}
+        onPress={() => setActiveTab('basic')}
+      >
+        <Text style={[styles.tabText, activeTab === 'basic' && styles.activeTabText]}>
+          🚗 Básico
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'taxes' && styles.activeTab]}
+        onPress={() => setActiveTab('taxes')}
+      >
+        <Text style={[styles.tabText, activeTab === 'taxes' && styles.activeTabText]}>
+          💰 Impuestos
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'documents' && styles.activeTab]}
+        onPress={() => setActiveTab('documents')}
+      >
+        <Text style={[styles.tabText, activeTab === 'documents' && styles.activeTabText]}>
+          📄 Documentos
+        </Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+);
+
+export const VehicleHistoryTabContent: React.FC<{activeTab: string}> = ({activeTab}) => {
   const { currentInspection, updateVehicleHistory } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'basic' | 'taxes' | 'documents'>('basic');
   const [forceUpdate, setForceUpdate] = useState(0);
   
   // Animación de despliegue
@@ -142,36 +173,6 @@ const VehicleHistoryForm: React.FC = () => {
         },
       ]}
     >
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>📋 Historial del Vehículo (RUNT)</Text>
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'basic' && styles.activeTab]}
-            onPress={() => setActiveTab('basic')}
-          >
-            <Text style={[styles.tabText, activeTab === 'basic' && styles.activeTabText]}>
-              🚗 Básico
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'taxes' && styles.activeTab]}
-            onPress={() => setActiveTab('taxes')}
-          >
-            <Text style={[styles.tabText, activeTab === 'taxes' && styles.activeTabText]}>
-              💰 Impuestos
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'documents' && styles.activeTab]}
-            onPress={() => setActiveTab('documents')}
-          >
-            <Text style={[styles.tabText, activeTab === 'documents' && styles.activeTabText]}>
-              📄 Documentos
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
       <Animated.ScrollView 
         style={[
           styles.content, 
@@ -577,6 +578,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#2c3e50',
   },
-});
-
-export default VehicleHistoryForm; 
+}); 

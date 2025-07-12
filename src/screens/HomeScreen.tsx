@@ -98,6 +98,15 @@ const HomeScreen: React.FC = () => {
     });
   };
 
+  const getCardStatus = (inspection: InspectionForm) => {
+    if (inspection.resultadoInspeccion === 'approved') return { color: '#4CAF50', text: 'Aprobado' };
+    if (inspection.resultadoInspeccion === 'rejected') return { color: '#FF0000', text: 'Rechazado' };
+    if (inspection.overallStatus === 'approved') return { color: '#4CAF50', text: 'Aprobado' };
+    if (inspection.overallStatus === 'rejected') return { color: '#FF0000', text: 'Rechazado' };
+    if (inspection.overallStatus === 'conditional') return { color: '#FF9800', text: 'Condicional' };
+    return { color: '#9E9E9E', text: 'Pendiente' };
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -133,35 +142,33 @@ const HomeScreen: React.FC = () => {
             </Text>
           </View>
         ) : (
-          savedInspections.slice(0, 5).map((inspection) => (
-            <TouchableOpacity
-              key={inspection.id}
-              style={styles.inspectionCard}
-              onPress={() => loadInspection(inspection)}
-              onLongPress={() => handleDeleteInspection(inspection.id, inspection.vehicleInfo.plate)}
-            >
-              <View style={styles.inspectionHeader}>
-                <Text style={styles.plateText}>{inspection.vehicleInfo.plate || 'Sin placa'}</Text>
-                <View style={[
-                  styles.statusBadge,
-                  { backgroundColor: getStatusColor(inspection.overallStatus) }
-                ]}>
-                  <Text style={styles.statusText}>
-                    {getStatusText(inspection.overallStatus)}
-                  </Text>
+          savedInspections.slice(0, 5).map((inspection) => {
+            const status = getCardStatus(inspection);
+            return (
+              <TouchableOpacity
+                key={inspection.id}
+                style={styles.inspectionCard}
+                onPress={() => loadInspection(inspection)}
+                onLongPress={() => handleDeleteInspection(inspection.id, inspection.vehicleInfo.plate)}
+              >
+                <View style={styles.inspectionHeader}>
+                  <Text style={styles.plateText}>{inspection.vehicleInfo.plate || 'Sin placa'}</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: status.color }]}> 
+                    <Text style={styles.statusText}>{status.text}</Text>
+                  </View>
                 </View>
-              </View>
-              <Text style={styles.vehicleInfo}>
-                {inspection.vehicleInfo.brand} {inspection.vehicleInfo.model} ({inspection.vehicleInfo.year})
-              </Text>
-              <Text style={styles.dateText}>
-                {formatDate(inspection.inspectionDate)}
-              </Text>
-              <Text style={styles.inspectorText}>
-                Inspector: {inspection.inspectorName || 'Sin asignar'}
-              </Text>
-            </TouchableOpacity>
-          ))
+                <Text style={styles.vehicleInfo}>
+                  {inspection.vehicleInfo.brand} {inspection.vehicleInfo.model} ({inspection.vehicleInfo.year})
+                </Text>
+                <Text style={styles.dateText}>
+                  {formatDate(inspection.inspectionDate)}
+                </Text>
+                <Text style={styles.inspectorText}>
+                  Inspector: {inspection.inspectorName || 'Sin asignar'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })
         )}
       </View>
 
@@ -171,15 +178,11 @@ const HomeScreen: React.FC = () => {
           <Text style={styles.statLabel}>Total Inspecciones</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>
-            {savedInspections.filter(i => i.overallStatus === 'approved').length}
-          </Text>
+          <Text style={styles.statNumber}>{savedInspections.filter(i => (i.resultadoInspeccion || i.overallStatus) === 'approved').length}</Text>
           <Text style={styles.statLabel}>Aprobadas</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>
-            {savedInspections.filter(i => i.overallStatus === 'rejected').length}
-          </Text>
+          <Text style={styles.statNumber}>{savedInspections.filter(i => (i.resultadoInspeccion || i.overallStatus) === 'rejected').length}</Text>
           <Text style={styles.statLabel}>Rechazadas</Text>
         </View>
       </View>

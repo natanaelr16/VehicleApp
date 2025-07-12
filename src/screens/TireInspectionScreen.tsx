@@ -10,6 +10,7 @@ import {
   TextInput,
   Modal,
   ScrollView,
+  Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAppStore } from '../stores/appStore';
@@ -42,14 +43,28 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
   const [selectedPosition, setSelectedPosition] = useState<any>(null);
   const [valueInput, setValueInput] = useState('');
   const viewShotRef = useRef<ViewShot>(null);
+  // Estado para la llanta detectada por tap
+  const [pendingTapPosition, setPendingTapPosition] = useState<{x: number, y: number} | null>(null);
+  const [chooseLlantasModal, setChooseLlantasModal] = useState(false);
+  // Estado para el modal de opciones (editar/eliminar)
+  const [optionsModalVisible, setOptionsModalVisible] = useState(false);
+  const [selectedTireForOptions, setSelectedTireForOptions] = useState<{pos: typeof tirePositions[0], measurement: TireMeasurement} | null>(null);
 
   // 2. Definir posiciones y nombres exactos
-  const tirePositions = [
+  const tirePositions: Array<{id: string, x: number, y: number, title: string}> = [
     { id: 'front-left', x: 0.22, y: 0.32, title: 'Llanta DIzquierda' },
     { id: 'front-right', x: 0.78, y: 0.32, title: 'Llanta DDerecha' },
     { id: 'rear-left', x: 0.22, y: 0.68, title: 'Llanta TIzquierda' },
     { id: 'rear-right', x: 0.78, y: 0.68, title: 'Llanta TDerecha' },
   ];
+
+  // 1. Definir offsets para cada llanta (dirección de línea y etiqueta)
+  const tireLabelOffsets = {
+    'front-left':  { dx: -60, dy: -40 }, // izquierda-arriba
+    'front-right': { dx: 60, dy: -40 },  // derecha-arriba
+    'rear-left':   { dx: -60, dy: 40 },  // izquierda-abajo
+    'rear-right':  { dx: 60, dy: 40 },   // derecha-abajo
+  };
 
   // Sincronizar mediciones cuando cambie la inspección actual
   useEffect(() => {
@@ -66,12 +81,61 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
     return tirePositions.filter(pos => !usedPositions.includes(pos.id));
   };
 
+  // Obtener nombres de llantas disponibles (no usados)
+  const getAvailableTireNames = () => {
+    const usedNames = measurements.map(m => m.title);
+    const allNames = ['Llanta Del. DER', 'Llanta Del IZQ', 'Llanta Tra. DER', 'Llanta Tra IZQ'];
+    return allNames.filter(name => !usedNames.includes(name));
+  };
+
   // 3. Modal/input solo para valor numérico
   const handlePositionSelect = (position: any) => {
     setSelectedPosition(position);
     const found = measurements.find(m => m.position === position.id);
     setValueInput(found ? String(found.value) : '');
     setModalVisible(true);
+  };
+
+  // Handler para tap sobre la imagen
+  const handleImagePress = (evt: any) => {
+    const { locationX, locationY } = evt.nativeEvent;
+    // Verificar si ya hay 4 mediciones
+    if (measurements.length >= 4) {
+      Alert.alert('Límite alcanzado', 'Ya tienes 4 llantas medidas. Elimina una para agregar otra.');
+      return;
+    }
+    
+    // Convertir coordenadas a porcentajes
+    const x = locationX / IMAGE_WIDTH;
+    const y = locationY / IMAGE_HEIGHT;
+    
+    // Guardar la posición del tap y mostrar modal de selección de nombre
+    setPendingTapPosition({ x, y });
+    setChooseLlantasModal(true);
+  };
+
+  // Handler para elegir nombre de llanta desde el modal
+  const handleChooseLlanta = (tireName: string) => {
+    if (pendingTapPosition) {
+      // Crear nueva medición con nombre específico
+      const newMeasurement: TireMeasurement = {
+        id: `tire-${Date.now()}`,
+        position: tireName,
+        x: pendingTapPosition.x,
+        y: pendingTapPosition.y,
+        title: tireName,
+        value: 0,
+      };
+      
+      setSelectedPosition({ id: newMeasurement.id, x: pendingTapPosition.x, y: pendingTapPosition.y, title: tireName });
+      setValueInput('');
+      setModalVisible(true);
+      
+      // Agregar la medición temporalmente para mostrar el punto
+      setMeasurements(prev => [...prev, newMeasurement]);
+      setChooseLlantasModal(false);
+      setPendingTapPosition(null);
+    }
   };
 
   const handleAddMeasurement = () => {
@@ -81,19 +145,14 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
       return;
     }
     if (selectedPosition) {
-      const newMeasurement: TireMeasurement = {
-        id: selectedPosition.id,
-        position: selectedPosition.id,
-        x: selectedPosition.x,
-        y: selectedPosition.y,
-        title: selectedPosition.title,
-        value,
-      };
-      // Reemplazar o agregar
-      setMeasurements(prev => {
-        const filtered = prev.filter(m => m.position !== selectedPosition.id);
-        return [...filtered, newMeasurement];
-      });
+      // Actualizar la medición existente con el valor
+      setMeasurements(prev => 
+        prev.map(m => 
+          m.id === selectedPosition.id 
+            ? { ...m, value }
+            : m
+        )
+      );
       setSelectedPosition(null);
       setValueInput('');
       setModalVisible(false);
@@ -160,6 +219,51 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
     return '#2196F3';
   };
 
+  // Función para detectar la llanta más cercana al tap
+  const detectNearestTire = (x: number, y: number) => {
+    let minDist = 9999;
+    let nearest = null;
+    tirePositions.forEach(pos => {
+      const px = pos.x * IMAGE_WIDTH;
+      const py = pos.y * IMAGE_HEIGHT;
+      const dist = Math.sqrt((x - px) ** 2 + (y - py) ** 2);
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = pos;
+      }
+    });
+    // Radio de tolerancia (ajustable)
+    if (minDist < 80) return nearest;
+    return null;
+  };
+
+  // Handler para mostrar opciones de editar/eliminar
+  const handleShowOptions = (pos: typeof tirePositions[0], measurement: TireMeasurement) => {
+    setSelectedTireForOptions({ pos, measurement });
+    setOptionsModalVisible(true);
+  };
+
+  // Handler para editar medición
+  const handleEditMeasurement = () => {
+    if (selectedTireForOptions) {
+      setSelectedPosition(selectedTireForOptions.pos);
+      setValueInput(String(selectedTireForOptions.measurement.value));
+      setModalVisible(true);
+      setOptionsModalVisible(false);
+      setSelectedTireForOptions(null);
+    }
+  };
+
+  // Handler para eliminar medición
+  const handleDeleteMeasurement = () => {
+    if (selectedTireForOptions) {
+      const posId = selectedTireForOptions.pos.id;
+      setMeasurements(measurements.filter((meas: TireMeasurement) => meas.position !== posId));
+      setOptionsModalVisible(false);
+      setSelectedTireForOptions(null);
+    }
+  };
+
   // 5. Renderizar líneas y etiquetas
   return (
     <View style={styles.container}>
@@ -172,7 +276,7 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
       
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.instructions}>
-          Selecciona una llanta disponible para agregar información. Las llantas ya medidas aparecen en rojo.
+          Toca en cualquier lugar de la imagen para marcar una llanta (máximo 4). Mantén presionado una llanta para editar o eliminar.
         </Text>
         
         <View style={styles.imageContainer}>
@@ -185,51 +289,77 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
               height: IMAGE_HEIGHT
             }}
           >
-            <View style={{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT }}>
+            <Pressable onPress={handleImagePress} style={{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT }}>
               <Image
-                source={{
-                  uri: 'data:image/svg+xml;base64,' + btoa(`
-                    <svg width="300" height="180" xmlns="http://www.w3.org/2000/svg">
-                      <rect width="300" height="180" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
-                      <rect x="50" y="40" width="200" height="100" fill="#e0e0e0" stroke="#999" stroke-width="1"/>
-                      <text x="150" y="30" text-anchor="middle" fill="#666" font-size="12">ESQUELETO DEL VEHÍCULO</text>
-                    </svg>
-                  `)
-                }}
+                source={require('../../assets/vehicles/vehicle-skeleton.png')}
                 style={{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT, borderRadius: 12 }}
                 resizeMode="contain"
               />
-              {/* Dibujar líneas y etiquetas */}
-              {tirePositions.map((pos) => {
-                const m = measurements.find(meas => meas.position === pos.id);
-                const color = getColorByValue(m?.value);
-                // Coordenadas para líneas (ajustar según imagen)
-                const startX = pos.x * IMAGE_WIDTH;
-                const startY = pos.y * IMAGE_HEIGHT;
-                const endX = pos.x * IMAGE_WIDTH + (pos.x < 0.5 ? -40 : 40);
-                const endY = pos.y * IMAGE_HEIGHT + (pos.y < 0.5 ? -40 : 40);
+              {/* Dibujar puntos de llantas medidas */}
+              {measurements.map((m) => {
+                const color = getColorByValue(m.value);
+                const cx = m.x * IMAGE_WIDTH;
+                const cy = m.y * IMAGE_HEIGHT;
+                // Calcular offset para la etiqueta (más corto)
+                const dx = 35;
+                const dy = -25;
+                const labelX = cx + dx;
+                const labelY = cy + dy;
+                // Línea diagonal usando View
                 return (
-                  <>
-                    {/* Línea interactiva */}
+                  <React.Fragment key={m.id}>
+                    {/* Punto pequeño */}
                     <TouchableOpacity
-                      key={pos.id}
-                      activeOpacity={0.7}
-                      style={{ position: 'absolute', left: Math.min(startX, endX), top: Math.min(startY, endY), width: Math.abs(endX - startX) || 2, height: Math.abs(endY - startY) || 2, zIndex: 2 }}
-                      onPress={() => handlePositionSelect(pos)}
+                      style={{ position: 'absolute', left: cx - 4, top: cy - 4, width: 8, height: 8, borderRadius: 4, backgroundColor: color, borderWidth: 1, borderColor: '#fff', zIndex: 3 }}
+                      onPress={() => {
+                        setSelectedPosition({ id: m.id, x: m.x, y: m.y, title: m.title });
+                        setValueInput(String(m.value));
+                        setModalVisible(true);
+                      }}
+                    />
+                    {/* Línea diagonal usando View */}
+                    <View
+                      style={{
+                        position: 'absolute',
+                        left: cx,
+                        top: cy,
+                        width: Math.sqrt((labelX - cx) ** 2 + (labelY - cy) ** 2),
+                        height: 1,
+                        backgroundColor: color,
+                        zIndex: 2,
+                        pointerEvents: 'none',
+                        transform: [
+                          {
+                            rotate: `${Math.atan2(labelY - cy, labelX - cx) * (180 / Math.PI)}deg`
+                          }
+                        ],
+                        transformOrigin: '0 0'
+                      }}
+                    />
+                    {/* Etiqueta con long press para editar/eliminar */}
+                    <Pressable
+                      style={{ 
+                        position: 'absolute', 
+                        left: labelX - 8, 
+                        top: labelY - 8, 
+                        backgroundColor: color, 
+                        borderRadius: 8, 
+                        padding: 4, 
+                        minWidth: 50, 
+                        minHeight: 30,
+                        zIndex: 4,
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      onLongPress={() => handleShowOptions({ id: m.id, x: m.x, y: m.y, title: m.title }, m)}
                     >
-                      <View style={{ position: 'absolute', left: 0, top: 0, width: Math.abs(endX - startX) || 2, height: Math.abs(endY - startY) || 2, borderWidth: 3, borderColor: color, borderRadius: 2 }} />
-                    </TouchableOpacity>
-                    {/* Etiqueta con nombre y valor */}
-                    {typeof m?.value === 'number' && (
-                      <View style={{ position: 'absolute', left: endX, top: endY, backgroundColor: color, borderRadius: 8, padding: 4, minWidth: 60 }}>
-                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>{pos.title}</Text>
-                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16, textAlign: 'center' }}>{m.value.toFixed(2)}</Text>
-                      </View>
-                    )}
-                  </>
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 8 }}>{m.title}</Text>
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 10, textAlign: 'center' }}>{m.value.toFixed(2)}</Text>
+                    </Pressable>
+                  </React.Fragment>
                 );
               })}
-            </View>
+            </Pressable>
           </ViewShot>
         </View>
         
@@ -246,19 +376,10 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
           </View>
         )}
 
-        {/* Posiciones disponibles */}
-        {availablePositions.length > 0 && (
+        {/* Información de límite */}
+        {measurements.length < 4 && (
           <View style={styles.availablePositions}>
-            <Text style={styles.availableTitle}>Posiciones Disponibles:</Text>
-            {availablePositions.map((pos) => (
-              <TouchableOpacity
-                key={pos.id}
-                style={styles.availablePositionButton}
-                onPress={() => handlePositionSelect(pos)}
-              >
-                <Text style={styles.availablePositionText}>{pos.title}</Text>
-              </TouchableOpacity>
-            ))}
+            <Text style={styles.availableTitle}>Puedes agregar {4 - measurements.length} llanta(s) más</Text>
           </View>
         )}
       </ScrollView>
@@ -288,6 +409,115 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
                 <Text style={styles.modalButtonText}>Guardar</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal para elegir llanta si el tap no está asignado */}
+      <Modal visible={chooseLlantasModal} transparent animationType="fade" onRequestClose={() => setChooseLlantasModal(false)}>
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.7)' }]}> 
+          <View style={{ backgroundColor: '#111', borderRadius: 20, padding: 28, minWidth: 320, maxWidth: 420, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 22, marginBottom: 10, textAlign: 'center' }}>Selecciona la llanta</Text>
+            <Text style={{ color: '#ccc', fontSize: 15, marginBottom: 22, textAlign: 'center' }}>Elige el nombre de la llanta que vas a medir:</Text>
+            {getAvailableTireNames().length === 0 ? (
+              <Text style={{ color: 'white', fontSize: 16, marginBottom: 20 }}>No hay llantas disponibles</Text>
+            ) : (
+              getAvailableTireNames().map((tireName: string, idx: number) => (
+                <TouchableOpacity
+                  key={tireName || `llanta-${idx}`}
+                  style={{
+                    backgroundColor: '#FF0000',
+                    borderRadius: 10,
+                    marginVertical: 8,
+                    paddingVertical: 18,
+                    width: 240,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.2,
+                    shadowRadius: 4,
+                  }}
+                  onPress={() => handleChooseLlanta(tireName)}
+                >
+                  <Text style={{
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    fontSize: 20,
+                    textAlign: 'center',
+                    textShadowColor: '#000',
+                    textShadowOffset: { width: 1, height: 1 },
+                    textShadowRadius: 2,
+                    letterSpacing: 0.5,
+                  }}>{tireName || `Llanta ${idx + 1}`}</Text>
+                </TouchableOpacity>
+              ))
+            )}
+            <TouchableOpacity
+              onPress={() => { setChooseLlantasModal(false); setPendingTapPosition(null); }}
+              style={{
+                backgroundColor: '#333',
+                borderRadius: 10,
+                marginTop: 18,
+                paddingVertical: 16,
+                width: 240,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center' }}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de opciones (editar/eliminar) */}
+      <Modal visible={optionsModalVisible} transparent animationType="fade" onRequestClose={() => setOptionsModalVisible(false)}>
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}> 
+          <View style={{ backgroundColor: 'white', borderRadius: 18, padding: 28, minWidth: 300, maxWidth: 380, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 20, marginBottom: 18, textAlign: 'center' }}>Opciones para {selectedTireForOptions?.measurement.title}</Text>
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#000',
+                borderRadius: 8,
+                marginVertical: 8,
+                paddingVertical: 15,
+                width: 200,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onPress={handleEditMeasurement}
+            >
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16, textAlign: 'center' }}>Editar medición</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#FF0000',
+                borderRadius: 8,
+                marginVertical: 8,
+                paddingVertical: 15,
+                width: 200,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onPress={handleDeleteMeasurement}
+            >
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16, textAlign: 'center' }}>Eliminar medición</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setOptionsModalVisible(false)}
+              style={{
+                backgroundColor: '#333',
+                borderRadius: 8,
+                marginTop: 12,
+                paddingVertical: 15,
+                width: 200,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16, textAlign: 'center' }}>Cancelar</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -478,6 +708,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     color: '#333',
   },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#666',
+  },
   modalField: {
     width: '100%',
     marginBottom: 15,
@@ -527,6 +763,12 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: '#000',
     fontWeight: 'bold',
+  },
+  modalButtonSubtext: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+    marginTop: 2,
   },
 });
 

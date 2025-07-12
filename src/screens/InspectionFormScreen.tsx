@@ -8,13 +8,14 @@ import {
   TouchableOpacity,
   Alert,
   Modal,
+  Animated,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '../components/AppNavigator';
 import { useAppStore } from '../stores/appStore';
 import { Picker } from '@react-native-picker/picker';
-import VehicleHistoryForm from '../components/VehicleHistoryForm';
+import { VehicleHistoryMenuTabs, VehicleHistoryTabContent } from '../components/VehicleHistoryForm';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 
@@ -42,6 +43,9 @@ const InspectionFormScreen: React.FC = () => {
   const [lastAddedItemId, setLastAddedItemId] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [runtAnim] = useState(new Animated.Value(0));
+  const [runtTab, setRuntTab] = useState<'basic' | 'taxes' | 'documents'>('basic');
+  const [showRuntMenu, setShowRuntMenu] = useState(false);
 
   // Scroll automático al nuevo item agregado (que ahora está al inicio)
   useEffect(() => {
@@ -52,6 +56,23 @@ const InspectionFormScreen: React.FC = () => {
       setLastAddedItemId(null);
     }
   }, [lastAddedItemId]);
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      setShowRuntMenu(true);
+      Animated.timing(runtAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
+    } else if (showRuntMenu) {
+      Animated.timing(runtAnim, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }).start(() => setShowRuntMenu(false));
+    }
+  }, [activeTab]);
 
   if (!currentInspection) {
     return (
@@ -431,11 +452,35 @@ const InspectionFormScreen: React.FC = () => {
               style={styles.tireInspectionButton}
               onPress={() => (navigation as any).navigate('TireInspection', { vehicleType: bodyType })}
             >
-                              <Text style={styles.tireInspectionButtonText}>🛞 Inspección de Ruedas</Text>
+              <Text style={styles.tireInspectionButtonText}>Inspección de ruedas</Text>
             </TouchableOpacity>
           </View>
-        ) : activeTab === 'history' ? (
-          <VehicleHistoryForm />
+        ) : activeTab === 'history' || showRuntMenu ? (
+          <View style={{ flex: 1 }}>
+            <Animated.View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                zIndex: 10,
+                opacity: runtAnim,
+                transform: [
+                  {
+                    translateY: runtAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-100, 0],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <VehicleHistoryMenuTabs activeTab={runtTab} setActiveTab={setRuntTab} />
+            </Animated.View>
+            <View style={{ flex: 1, marginTop: 110 }}>
+              <VehicleHistoryTabContent activeTab={runtTab} />
+            </View>
+          </View>
         ) : (
           /* Tab de items de inspección */
           <View style={styles.section}>

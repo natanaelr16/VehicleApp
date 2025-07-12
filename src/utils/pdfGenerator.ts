@@ -505,11 +505,7 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
             <thead>
               <tr style="background: linear-gradient(135deg, #0066cc, #0052a3);">
                 <th style="padding: 15px; border: none; text-align: center; color: white; font-weight: bold;">Título</th>
-                <th style="padding: 15px; border: none; color: white; font-weight: bold;">Marca</th>
-                <th style="padding: 15px; border: none; color: white; font-weight: bold;">Modelo</th>
-                <th style="padding: 15px; border: none; color: white; font-weight: bold;">Tamaño</th>
-                <th style="padding: 15px; border: none; color: white; font-weight: bold;">Presión</th>
-                <th style="padding: 15px; border: none; color: white; font-weight: bold;">Estado</th>
+                <th style="padding: 15px; border: none; color: white; font-weight: bold;">Valor (mm)</th>
               </tr>
             </thead>
             <tbody>
@@ -518,20 +514,8 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
                   <td style="padding: 12px; border: 1px solid #e0e0e0; text-align: center; font-weight: bold; background: #f8f9fa;">
                     ${measurement.title}
                   </td>
-                  <td style="padding: 12px; border: 1px solid #e0e0e0; text-align: center;">
-                    ${measurement.brand}
-                  </td>
-                  <td style="padding: 12px; border: 1px solid #e0e0e0; text-align: center;">
-                    ${measurement.model || '-'}
-                  </td>
-                  <td style="padding: 12px; border: 1px solid #e0e0e0; text-align: center;">
-                    ${measurement.size || '-'}
-                  </td>
-                  <td style="padding: 12px; border: 1px solid #e0e0e0; text-align: center;">
-                    ${measurement.pressure || '-'}
-                  </td>
-                  <td style="padding: 12px; border: 1px solid #e0e0e0; text-align: center;">
-                    ${measurement.condition || '-'}
+                  <td style="padding: 12px; border: 1px solid #e0e0e0; text-align: center; font-weight: bold; color: #222;">
+                    ${typeof measurement.value === 'number' ? measurement.value.toFixed(2) : '-'}
                   </td>
                 </tr>
               `).join('')}
@@ -543,291 +527,103 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
   };
 
   return `
-    <html>
-    <head>
-      <meta charset="UTF-8" />
-      <style>
-        body {
-          font-family: 'Segoe UI', Arial, sans-serif;
-          background: #fff;
-          margin: 0;
-          padding: 0;
-        }
-        .container {
-          max-width: 900px;
-          margin: 30px auto;
-          background: #fff;
-          border: 2px solid #222;
-          border-radius: 12px;
-          box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-          position: relative;
-          overflow: hidden;
-        }
-        .watermark {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          opacity: 0.10;
-          z-index: 0;
-          width: 70%;
-          max-width: 600px;
-        }
-        .header {
-          display: flex;
-          align-items: center;
-          padding: 30px 30px 10px 30px;
-          border-bottom: 2px solid #eee;
-          position: relative;
-        }
-        .company-logo {
-          height: 80px;
-          width: auto;
-          margin-right: 24px;
-        }
-        .company-info {
-          font-size: 13px;
-          color: #444;
-        }
-        .company-info h2 {
-          font-size: 20px;
-          margin: 0 0 2px 0;
-          font-weight: 700;
-        }
-        .company-info p {
-          margin: 0;
-          font-size: 12px;
-        }
-        .report-title {
-          text-align: center;
-          font-size: 22px;
-          font-weight: bold;
-          margin: 30px 0 10px 0;
-          letter-spacing: 1px;
-        }
-        .info-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 18px;
-        }
-        .info-table th, .info-table td {
-          border: 1px solid #bbb;
-          padding: 7px 10px;
-          font-size: 14px;
-        }
-        .info-table th {
-          background: #f5f5f5;
-          font-weight: 600;
-        }
-        .section-title {
-          font-size: 16px;
-          font-weight: bold;
-          margin: 18px 0 8px 0;
-          color: #222;
-        }
-        .diagnostico-list {
-          margin: 0 0 10px 0;
-          padding: 0 0 0 18px;
-        }
-        .diagnostico-list li {
-          font-size: 14px;
-          margin-bottom: 4px;
-        }
-        .aprobado-btn, .noaprobado-btn {
-          display: inline-block;
-          padding: 8px 24px;
-          border-radius: 18px;
-          font-weight: bold;
-          font-size: 15px;
-          margin-right: 10px;
-        }
-        .aprobado-btn {
-          background: #4CAF50;
-          color: #fff;
-        }
-        .noaprobado-btn {
-          background: #FF0000;
-          color: #fff;
-        }
-        .page-break {
-          page-break-before: always;
-        }
-        .inspection-items-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 20px 0;
-        }
-        .inspection-items-table th, .inspection-items-table td {
-          border: 1px solid #ddd;
-          padding: 8px 12px;
-          text-align: left;
-          font-size: 13px;
-        }
-        .inspection-items-table th {
-          background: #f8f9fa;
-          font-weight: bold;
-          color: #333;
-        }
-        .status-good { background: #4CAF50; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
-        .status-bad { background: #FF0000; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
-        .status-attention { background: #FF9800; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
-        .status-na { background: #9E9E9E; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
-      </style>
-    </head>
-    <body>
-      <!-- PRIMERA PÁGINA: Información básica y items de inspección -->
-      <div class="container">
-        ${watermarkBase64 ? `<img src="${watermarkBase64}" class="watermark" alt="Marca de Agua" />` : ''}
-        <div class="header">
-          ${logoBase64 ? `<img src="${logoBase64}" class="company-logo" alt="Logo">` : ''}
-          <div class="company-info">
-            <h2>${settings.companyName || 'MTinspector'}</h2>
-            ${settings.companyAddress ? `<p>${settings.companyAddress}</p>` : ''}
-            ${settings.companyPhone ? `<p>${settings.companyPhone}</p>` : ''}
-            ${settings.companyEmail ? `<p>${settings.companyEmail}</p>` : ''}
-          </div>
-        </div>
-        <div class="report-title">REVISION TECNICA - INGRESO VEHICULAR</div>
-        
-        <!-- Información de Ingreso -->
-        <div class="section-title">📅 INFORMACIÓN DE INGRESO</div>
-        <table class="info-table">
-          <tr>
-            <th>Fecha Ingreso</th>
-            <td>${inspection.fechaIngreso || ''}</td>
-            <th>Hora Ingreso</th>
-            <td>${inspection.horaIngreso || ''}</td>
-          </tr>
-        </table>
-
-        <!-- Items de Inspección -->
-        <div class="section-title">🔍 ITEMS DE INSPECCIÓN</div>
-        ${generateInspectionItemsHTML(inspection)}
-        
-        <!-- Sugerencias de Diagnóstico -->
-        <div class="section-title">💡 SUGERENCIAS DE DIAGNÓSTICO</div>
-        <ul class="diagnostico-list">
-          ${(inspection.sugerenciasDiagnostico && inspection.sugerenciasDiagnostico.length > 0)
-            ? inspection.sugerenciasDiagnostico.map(s => `<li>${s}</li>`).join('')
-            : '<li>No hay sugerencias registradas.</li>'}
-        </ul>
-        
-        <!-- Precio Sugerido -->
-        <div class="section-title">💲 PRECIO SUGERIDO</div>
-        <p style="font-size: 16px; font-weight: bold; color: #222;">
-          ${inspection.precioSugerido ? `$${inspection.precioSugerido}` : 'No ingresado'}
-        </p>
-        
-        <!-- Resultado de Inspección -->
-        <div class="section-title">✅ RESULTADO DE INSPECCIÓN</div>
-        <div style="margin-bottom: 20px;">
-          ${inspection.resultadoInspeccion === 'approved'
-            ? '<span class="aprobado-btn">Aprobado</span>'
-            : inspection.resultadoInspeccion === 'rejected'
-              ? '<span class="noaprobado-btn">No Aprobado</span>'
-              : '<span style="color:#888;">Sin resultado</span>'}
-        </div>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Reporte de Inspección Vehicular</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #fff; }
+    .container { width: 95%; margin: 0 auto; padding: 24px 0; }
+    .header { display: flex; align-items: center; border-bottom: 2px solid #222; padding-bottom: 12px; margin-bottom: 18px; }
+    .company-logo { height: 60px; margin-right: 24px; }
+    .company-info { flex: 1; }
+    .company-info h2 { margin: 0 0 4px 0; font-size: 22px; }
+    .company-info p { margin: 0; font-size: 13px; color: #444; }
+    .report-title { text-align: center; font-size: 20px; font-weight: bold; margin: 18px 0 12px 0; letter-spacing: 1px; }
+    .section-title { background: #f0f0f0; padding: 8px 12px; font-size: 16px; font-weight: bold; margin: 24px 0 8px 0; border-radius: 6px; }
+    .info-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+    .info-table th, .info-table td { border: 1px solid #ddd; padding: 7px 10px; font-size: 13px; }
+    .info-table th { background: #f8f9fa; font-weight: bold; color: #333; }
+    .diagnostico-list { margin: 0 0 12px 18px; font-size: 14px; }
+    .aprobado-btn, .noaprobado-btn { display: inline-block; padding: 8px 24px; border-radius: 18px; font-weight: bold; font-size: 15px; margin-right: 10px; }
+    .aprobado-btn { background: #4CAF50; color: #fff; }
+    .noaprobado-btn { background: #FF0000; color: #fff; }
+    .page-break { page-break-before: always; }
+    .footer { margin-top: 32px; text-align: center; font-size: 12px; color: #888; }
+  </style>
+</head>
+<body>
+  <!-- PRIMERA PÁGINA: Logo, título, ingreso, items, sugerencias, precio, resultado -->
+  <div class="container">
+    ${watermarkBase64 ? `<img src="${watermarkBase64}" class="watermark" alt="Marca de Agua" />` : ''}
+    <div class="header">
+      ${logoBase64 ? `<img src="${logoBase64}" class="company-logo" alt="Logo">` : ''}
+      <div class="company-info">
+        <h2>${settings.companyName || 'MTinspector'}</h2>
+        ${settings.companyAddress ? `<p>${settings.companyAddress}</p>` : ''}
+        ${settings.companyPhone ? `<p>${settings.companyPhone}</p>` : ''}
+        ${settings.companyEmail ? `<p>${settings.companyEmail}</p>` : ''}
       </div>
+    </div>
+    <div class="report-title">REVISION TECNICA - INGRESO VEHICULAR</div>
+    <div class="section-title">📅 INFORMACIÓN DE INGRESO</div>
+    <table class="info-table">
+      <tr><th>Fecha Ingreso</th><td>${inspection.fechaIngreso || ''}</td><th>Hora Ingreso</th><td>${inspection.horaIngreso || ''}</td></tr>
+    </table>
+    <div class="section-title">🔍 ITEMS DE INSPECCIÓN</div>
+    ${generateInspectionItemsHTML(inspection)}
+    <div class="section-title">💡 SUGERENCIAS DE DIAGNÓSTICO</div>
+    <ul class="diagnostico-list">
+      ${(inspection.sugerenciasDiagnostico && inspection.sugerenciasDiagnostico.length > 0)
+        ? inspection.sugerenciasDiagnostico.map(s => `<li>${s}</li>`).join('')
+        : '<li>No hay sugerencias registradas.</li>'}
+    </ul>
+    <div class="section-title">💲 PRECIO SUGERIDO</div>
+    <p style="font-size: 16px; font-weight: bold; color: #222;">${inspection.precioSugerido ? `$${inspection.precioSugerido}` : 'No ingresado'}</p>
+    <div class="section-title">✅ RESULTADO DE INSPECCIÓN</div>
+    <div style="margin-bottom: 20px;">
+      ${inspection.resultadoInspeccion === 'approved'
+        ? '<span class="aprobado-btn">Aprobado</span>'
+        : inspection.resultadoInspeccion === 'rejected'
+          ? '<span class="noaprobado-btn">No Aprobado</span>'
+          : '<span style="color:#888;">Sin resultado</span>'}
+    </div>
+  </div>
 
-      <!-- SEGUNDA PÁGINA: Información del vehículo e inspección de carrocería -->
-      <div class="container page-break">
-        ${watermarkBase64 ? `<img src="${watermarkBase64}" class="watermark" alt="Marca de Agua" />` : ''}
-        <div class="header">
-          ${logoBase64 ? `<img src="${logoBase64}" class="company-logo" alt="Logo">` : ''}
-          <div class="company-info">
-            <h2>${settings.companyName || 'MTinspector'}</h2>
-            ${settings.companyAddress ? `<p>${settings.companyAddress}</p>` : ''}
-            ${settings.companyPhone ? `<p>${settings.companyPhone}</p>` : ''}
-            ${settings.companyEmail ? `<p>${settings.companyEmail}</p>` : ''}
-          </div>
-        </div>
-        <div class="report-title">INFORMACIÓN DEL VEHÍCULO</div>
-        
-        <!-- Información del Vehículo -->
-        <div class="section-title">🚗 DATOS DEL VEHÍCULO</div>
-        <table class="info-table">
-          <tr>
-            <th>Placa</th>
-            <td>${inspection.vehicleInfo.plate || ''}</td>
-            <th>Propietario</th>
-            <td>${inspection.vehicleInfo.ownerName || ''}</td>
-          </tr>
-          <tr>
-            <th>Marca</th>
-            <td>${inspection.vehicleInfo.brand || ''}</td>
-            <th>Modelo</th>
-            <td>${inspection.vehicleInfo.model || ''}</td>
-          </tr>
-          <tr>
-            <th>Color</th>
-            <td>${inspection.vehicleInfo.color || ''}</td>
-            <th>Año</th>
-            <td>${inspection.vehicleInfo.year || ''}</td>
-          </tr>
-          <tr>
-            <th>Teléfono</th>
-            <td>${inspection.vehicleInfo.ownerPhone || ''}</td>
-            <th>Tipo de Carrocería</th>
-            <td>${inspection.vehicleInfo.bodyType === 'sedan' ? 'Sedán' : 
-                 inspection.vehicleInfo.bodyType === 'suv' ? 'SUV' : 
-                 inspection.vehicleInfo.bodyType === 'pickup' ? 'Pickup' : 'N/A'}</td>
-          </tr>
-        </table>
+  <!-- SEGUNDA PÁGINA: Información del vehículo y RUNT (sin logo ni título) -->
+  <div class="container page-break">
+    <div class="report-title">INFORMACIÓN DEL VEHÍCULO</div>
+    <div class="section-title">🚗 DATOS DEL VEHÍCULO</div>
+    <table class="info-table">
+      <tr><th>Placa</th><td>${inspection.vehicleInfo.plate || ''}</td><th>Propietario</th><td>${inspection.vehicleInfo.ownerName || ''}</td></tr>
+      <tr><th>Marca</th><td>${inspection.vehicleInfo.brand || ''}</td><th>Modelo</th><td>${inspection.vehicleInfo.model || ''}</td></tr>
+      <tr><th>Color</th><td>${inspection.vehicleInfo.color || ''}</td><th>Año</th><td>${inspection.vehicleInfo.year || ''}</td></tr>
+      <tr><th>Teléfono</th><td>${inspection.vehicleInfo.ownerPhone || ''}</td><th>Tipo de Carrocería</th><td>${inspection.vehicleInfo.bodyType === 'sedan' ? 'Sedán' : inspection.vehicleInfo.bodyType === 'suv' ? 'SUV' : inspection.vehicleInfo.bodyType === 'pickup' ? 'Pickup' : 'N/A'}</td></tr>
+    </table>
+    <div class="section-title">📋 DATOS RUNT</div>
+    <table class="info-table">
+      <tr><th>Multas SIMIT</th><td>${inspection.vehicleHistory?.simitFines || ''}</td><th>Pignoración</th><td>${inspection.vehicleHistory?.pignoracion || ''}</td></tr>
+      <tr><th>Timbre</th><td>${inspection.vehicleHistory?.timbreValue || ''}</td><th>Imp. Gobernación</th><td>${inspection.vehicleHistory?.governorTax?.status || ''}</td></tr>
+      <tr><th>Imp. Movilidad</th><td>${inspection.vehicleHistory?.mobilityTax?.status || ''}</td><th>SOAT</th><td>${inspection.vehicleHistory?.soatExpiry?.month || ''} ${inspection.vehicleHistory?.soatExpiry?.year || ''}</td></tr>
+      <tr><th>Tecnomecánica</th><td>${inspection.vehicleHistory?.technicalExpiry?.month || ''} ${inspection.vehicleHistory?.technicalExpiry?.year || ''}</td><th>Cilindraje</th><td>${inspection.vehicleHistory?.engineDisplacement || ''}</td></tr>
+      <tr><th>Combustible</th><td>${inspection.vehicleHistory?.fuelType || ''}</td><th>Kilometraje</th><td>${inspection.vehicleHistory?.mileage || ''}</td></tr>
+      <tr><th>Matriculado en</th><td>${inspection.vehicleHistory?.registrationCity || ''}</td><th>Fasecolda</th><td>${inspection.vehicleHistory?.fasecoldaReports || ''}</td></tr>
+    </table>
+  </div>
 
-        <!-- Datos RUNT -->
-        <div class="section-title">📋 DATOS RUNT</div>
-        <table class="info-table">
-          <tr>
-            <th>Multas SIMIT</th>
-            <td>${inspection.vehicleHistory?.simitFines || ''}</td>
-            <th>Pignoración</th>
-            <td>${inspection.vehicleHistory?.pignoracion || ''}</td>
-          </tr>
-          <tr>
-            <th>Timbre</th>
-            <td>${inspection.vehicleHistory?.timbreValue || ''}</td>
-            <th>Imp. Gobernación</th>
-            <td>${inspection.vehicleHistory?.governorTax?.status || ''}</td>
-          </tr>
-          <tr>
-            <th>Imp. Movilidad</th>
-            <td>${inspection.vehicleHistory?.mobilityTax?.status || ''}</td>
-            <th>SOAT</th>
-            <td>${inspection.vehicleHistory?.soatExpiry?.month || ''} ${inspection.vehicleHistory?.soatExpiry?.year || ''}</td>
-          </tr>
-          <tr>
-            <th>Tecnomecánica</th>
-            <td>${inspection.vehicleHistory?.technicalExpiry?.month || ''} ${inspection.vehicleHistory?.technicalExpiry?.year || ''}</td>
-            <th>Cilindraje</th>
-            <td>${inspection.vehicleHistory?.engineDisplacement || ''}</td>
-          </tr>
-          <tr>
-            <th>Combustible</th>
-            <td>${inspection.vehicleHistory?.fuelType || ''}</td>
-            <th>Kilometraje</th>
-            <td>${inspection.vehicleHistory?.mileage || ''}</td>
-          </tr>
-          <tr>
-            <th>Matriculado en</th>
-            <td>${inspection.vehicleHistory?.registrationCity || ''}</td>
-            <th>Fasecolda</th>
-            <td>${inspection.vehicleHistory?.fasecoldaReports || ''}</td>
-          </tr>
-        </table>
+  <!-- TERCERA PÁGINA: Inspección de Carrocería (si existe) -->
+  ${inspection.bodyInspection ? `<div class="container page-break">${generateBodyInspectionHTML(inspection)}</div>` : ''}
 
-        <!-- Inspección de Carrocería -->
-        ${generateBodyInspectionHTML(inspection)}
-        
-        <!-- Inspección de Llantas -->
-        ${generateTireInspectionHTML(inspection)}
-        
-        <div class="footer">
-          <p><strong>${settings.companyName || 'MTinspector'}</strong> - Sistema de Inspección Vehicular Profesional</p>
-          <p>Este documento es generado automáticamente por el sistema de inspección vehicular.</p>
-          <p>Fecha de generación: ${new Date().toLocaleDateString('es-CO')} - Documento válido por 30 días desde la fecha de inspección.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+  <!-- CUARTA PÁGINA: Inspección de Llantas (si existe) -->
+  ${inspection.tireInspection ? `<div class="container page-break">${generateTireInspectionHTML(inspection)}</div>` : ''}
+
+  <div class="footer">
+    <p><strong>${settings.companyName || 'MTinspector'}</strong> - Sistema de Inspección Vehicular Profesional</p>
+    <p>Este documento es generado automáticamente por el sistema de inspección vehicular.</p>
+    <p>Fecha de generación: ${new Date().toLocaleDateString('es-CO')} - Documento válido por 30 días desde la fecha de inspección.</p>
+  </div>
+</body>
+</html>
+`;
 }; 
