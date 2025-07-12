@@ -112,14 +112,34 @@ const BodyInspectionScreen: React.FC<BodyInspectionScreenProps> = ({ route }) =>
 
   const handleSave = async () => {
     try {
+      console.log('handleSave - points antes de guardar:', points);
+      console.log('handleSave - currentInspection:', currentInspection);
+      
       let capturedImage: string | undefined = undefined;
       
       // Capturar la imagen si hay puntos marcados
       if (points.length > 0 && viewShotRef.current?.capture) {
         try {
           const result = await viewShotRef.current.capture();
-          capturedImage = result || undefined;
-          console.log('Imagen capturada:', capturedImage);
+          console.log('Resultado de ViewShot:', result);
+          console.log('Tipo de resultado:', typeof result);
+          
+          // Si el resultado es una ruta de archivo, convertir a base64
+          if (result && typeof result === 'string' && result.startsWith('file://')) {
+            try {
+              const RNFS = require('react-native-fs');
+              const base64 = await RNFS.readFile(result, 'base64');
+              capturedImage = `data:image/png;base64,${base64}`;
+              console.log('Imagen convertida a base64, longitud:', capturedImage.length);
+            } catch (convertError) {
+              console.error('Error convirtiendo imagen a base64:', convertError);
+              capturedImage = result; // Usar la ruta original como fallback
+            }
+          } else {
+            capturedImage = result || undefined;
+          }
+          
+          console.log('Imagen final capturada:', capturedImage?.substring(0, 100));
         } catch (captureError) {
           console.error('Error capturando imagen:', captureError);
         }
@@ -131,6 +151,16 @@ const BodyInspectionScreen: React.FC<BodyInspectionScreenProps> = ({ route }) =>
           vehicleType,
           capturedImage
         });
+        
+        // Forzar el guardado de la inspección actual
+        useAppStore.getState().saveInspection();
+        
+        // Verificar que se guardó correctamente
+        setTimeout(() => {
+          const updatedInspection = useAppStore.getState().currentInspection;
+          console.log('handleSave - currentInspection después de guardar:', updatedInspection);
+          console.log('handleSave - bodyInspection después de guardar:', updatedInspection?.bodyInspection);
+        }, 100);
       }
       
       Alert.alert('Puntos guardados', 'Los puntos de inspección han sido guardados.');

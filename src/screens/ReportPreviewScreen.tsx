@@ -15,11 +15,24 @@ import { generateInspectionPDF } from '../utils/pdfGenerator';
 import { Linking, Platform } from 'react-native';
 import FileViewer from 'react-native-file-viewer';
 import RNFS from 'react-native-fs';
+import CustomAlert from '../components/CustomAlert';
+import { formatDateForDisplay } from '../utils/dateUtils';
 
 const ReportPreviewScreen: React.FC = () => {
   const navigation = useNavigation();
   const { currentInspection, settings, saveInspection } = useAppStore();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [customAlert, setCustomAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    buttons: Array<{ text: string; onPress: () => void; style?: 'primary' | 'secondary' | 'danger' }>;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    buttons: [],
+  });
 
   // Auto-guardar al generar preview
   React.useEffect(() => {
@@ -44,15 +57,21 @@ const ReportPreviewScreen: React.FC = () => {
   const generatePDF = async () => {
     if (!currentInspection) return;
     
-    // Mostrar alerta de confirmación antes de generar el PDF
-    Alert.alert(
-      '📄 Generar PDF Oficial',
-      '¿Estás seguro de que deseas generar el PDF oficial de la inspección?\n\nEste documento será guardado automáticamente.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: '✅ Generar PDF', 
+    // Mostrar diálogo de confirmación personalizado
+    setCustomAlert({
+      visible: true,
+      title: 'Generar PDF Oficial',
+      message: '¿Estás seguro de que deseas generar el PDF oficial de la inspección?\n\nEste documento será guardado automáticamente.',
+      buttons: [
+        {
+          text: 'Cancelar',
+          onPress: () => setCustomAlert({ visible: false, title: '', message: '', buttons: [] }),
+          style: 'secondary',
+        },
+        {
+          text: 'Generar PDF',
           onPress: async () => {
+            setCustomAlert({ visible: false, title: '', message: '', buttons: [] });
             setIsGenerating(true);
             try {
               const filePath = await generateInspectionPDF(currentInspection, settings);
@@ -67,25 +86,31 @@ const ReportPreviewScreen: React.FC = () => {
                 console.log('¿El archivo existe?', fileExists);
                 
                 if (!fileExists) {
-                  Alert.alert(
-                    '⚠️ Error',
-                    'El archivo PDF se generó pero no se pudo encontrar en el sistema de archivos.\n\nRuta: ' + filePath,
-                    [{ text: 'OK', style: 'default' }]
-                  );
+                  setCustomAlert({
+                    visible: true,
+                    title: 'Error',
+                    message: 'El archivo PDF se generó pero no se pudo encontrar en el sistema de archivos.\n\nRuta: ' + filePath,
+                    buttons: [
+                      {
+                        text: 'Entendido',
+                        onPress: () => setCustomAlert({ visible: false, title: '', message: '', buttons: [] }),
+                        style: 'primary',
+                      },
+                    ],
+                  });
                   return;
                 }
                 
-                // Mejorar mensajes de pie de página
-                const fileSize = (await RNFS.stat(filePath)).size;
-                const fileSizeKB = Math.round(fileSize / 1024);
-                
-                Alert.alert(
-                  '✅ PDF Generado',
-                  `📄 ${fileName}\n\nEl reporte se guardó correctamente.\n\n¿Deseas abrirlo, compartirlo o copiarlo?`,
-                  [
+                // Mostrar diálogo de éxito con opciones
+                setCustomAlert({
+                  visible: true,
+                  title: 'PDF Generado',
+                  message: `${fileName}\n\nEl reporte se guardó correctamente.\n\n¿Deseas abrirlo o compartirlo?`,
+                  buttons: [
                     {
-                      text: '📤 Compartir',
+                      text: 'Compartir',
                       onPress: async () => {
+                        setCustomAlert({ visible: false, title: '', message: '', buttons: [] });
                         try {
                           await Share.share({
                             url: `file://${filePath}`,
@@ -93,63 +118,72 @@ const ReportPreviewScreen: React.FC = () => {
                             message: `Reporte de inspección: ${currentInspection.vehicleInfo.plate || 'vehículo'} - ${new Date().toLocaleDateString('es-CO')}`
                           });
                         } catch (error) {
-                          Alert.alert('❌ Error', 'No se pudo compartir el archivo');
+                          setCustomAlert({
+                            visible: true,
+                            title: 'Error',
+                            message: 'No se pudo compartir el archivo',
+                            buttons: [
+                              {
+                                text: 'Entendido',
+                                onPress: () => setCustomAlert({ visible: false, title: '', message: '', buttons: [] }),
+                                style: 'primary',
+                              },
+                            ],
+                          });
                         }
                       },
-                      style: 'default',
+                      style: 'primary',
                     },
                     {
-                      text: '📄 Abrir PDF',
+                      text: 'Abrir PDF',
                       onPress: async () => {
+                        setCustomAlert({ visible: false, title: '', message: '', buttons: [] });
                         try {
                           await FileViewer.open(filePath, {
                             showOpenWithDialog: true,
                             onDismiss: () => {},
                           });
                         } catch (error) {
-                          Alert.alert(
-                            '❌ No se pudo abrir',
-                            'Instala Google Drive o Adobe Reader para abrir el PDF.'
-                          );
+                          setCustomAlert({
+                            visible: true,
+                            title: 'No se pudo abrir',
+                            message: 'Instala Google Drive o Adobe Reader para abrir el PDF.',
+                            buttons: [
+                              {
+                                text: 'Entendido',
+                                onPress: () => setCustomAlert({ visible: false, title: '', message: '', buttons: [] }),
+                                style: 'primary',
+                              },
+                            ],
+                          });
                         }
                       },
-                      style: 'default',
+                      style: 'secondary',
                     },
-                    {
-                      text: '📥 Copiar a Download',
-                      onPress: async () => {
-                        try {
-                          const downloadPath = Platform.OS === 'android'
-                            ? `${RNFS.DownloadDirectoryPath}/${fileName}`
-                            : `${RNFS.DocumentDirectoryPath}/Download/${fileName}`;
-                          await RNFS.copyFile(filePath, downloadPath);
-                          Alert.alert('✅ Copiado', `El archivo fue copiado a la carpeta Download como ${fileName}`);
-                        } catch (error) {
-                          Alert.alert('❌ Error', 'No se pudo copiar el archivo: ' + error);
-                        }
-                      },
-                      style: 'default',
-                    },
-                    {
-                      text: '⬅️ Atrás',
-                      style: 'cancel',
-                    },
-                  ]
-                );
+                  ],
+                });
               }
             } catch (error) {
-              Alert.alert(
-                '❌ Error al Generar PDF',
-                'No se pudo generar el PDF. Verifica que tengas permisos de almacenamiento.',
-                [{ text: 'OK', style: 'default' }]
-              );
+              setCustomAlert({
+                visible: true,
+                title: 'Error al Generar PDF',
+                message: 'No se pudo generar el PDF. Verifica que tengas permisos de almacenamiento.',
+                buttons: [
+                  {
+                    text: 'Entendido',
+                    onPress: () => setCustomAlert({ visible: false, title: '', message: '', buttons: [] }),
+                    style: 'primary',
+                  },
+                ],
+              });
             } finally {
               setIsGenerating(false);
             }
-          }
-        }
-      ]
-    );
+          },
+          style: 'primary',
+        },
+      ],
+    });
   };
 
   const getStatusColor = (status: string) => {
@@ -760,7 +794,7 @@ const ReportPreviewScreen: React.FC = () => {
                         </Text>
                       )}
                       <Text style={styles.photoDate}>
-                        {photo.timestamp ? photo.timestamp.toLocaleDateString('es-CO') : 'Sin fecha'}
+                        {formatDateForDisplay(photo.timestamp)}
                       </Text>
                     </View>
                   </View>
@@ -836,14 +870,23 @@ const ReportPreviewScreen: React.FC = () => {
           disabled={isGenerating}
         >
           <Text style={styles.generateButtonText}>
-            {isGenerating ? '🔄 Generando...' : '📄 Generar PDF'}
+            {isGenerating ? 'Generando...' : 'Generar PDF'}
           </Text>
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.shareButton}>
-          <Text style={styles.shareButtonText}>📤 Compartir</Text>
+          <Text style={styles.shareButtonText}>Compartir</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Diálogo personalizado */}
+      <CustomAlert
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        buttons={customAlert.buttons}
+        onDismiss={() => setCustomAlert({ visible: false, title: '', message: '', buttons: [] })}
+      />
     </View>
   );
 };

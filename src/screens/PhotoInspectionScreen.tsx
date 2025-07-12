@@ -16,6 +16,7 @@ import { useAppStore } from '../stores/appStore';
 import { InspectionPhoto } from '../types';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { requestCameraPermissions, requestStoragePermissions } from '../utils/permissions';
+import { formatDateForDisplay } from '../utils/dateUtils';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -213,7 +214,7 @@ const PhotoInspectionScreen: React.FC = () => {
                       <Text style={styles.photoObservations}>{photo.observations}</Text>
                     )}
                     <Text style={styles.photoDate}>
-                      {photo.timestamp ? photo.timestamp.toLocaleDateString('es-CO') : 'Sin fecha'}
+                      {formatDateForDisplay(photo.timestamp)}
                     </Text>
                   </View>
                   <View style={styles.photoActions}>

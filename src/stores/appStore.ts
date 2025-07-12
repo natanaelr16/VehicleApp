@@ -176,6 +176,10 @@ export const useAppStore = create<AppState>()(
 
       updateBodyInspection: (bodyInspection) => {
         console.log('AppStore - updateBodyInspection called with:', bodyInspection);
+        console.log('AppStore - capturedImage type:', typeof bodyInspection.capturedImage);
+        console.log('AppStore - capturedImage length:', bodyInspection.capturedImage?.length);
+        console.log('AppStore - capturedImage preview:', bodyInspection.capturedImage?.substring(0, 100));
+        
         const { currentInspection } = get();
         if (currentInspection) {
           set({
@@ -185,6 +189,14 @@ export const useAppStore = create<AppState>()(
             }
           });
           console.log('AppStore - bodyInspection updated successfully');
+          
+          // Verificar que se guardó correctamente
+          setTimeout(() => {
+            const newState = get();
+            console.log('AppStore - currentInspection después de updateBodyInspection:', newState.currentInspection);
+            console.log('AppStore - bodyInspection después de updateBodyInspection:', newState.currentInspection?.bodyInspection);
+            console.log('AppStore - capturedImage después de updateBodyInspection:', newState.currentInspection?.bodyInspection?.capturedImage?.substring(0, 100));
+          }, 100);
         } else {
           console.log('AppStore - No currentInspection to update');
         }
@@ -293,7 +305,9 @@ export const useAppStore = create<AppState>()(
               ...photo,
               timestamp: photo.timestamp instanceof Date 
                 ? photo.timestamp 
-                : photo.timestamp ? new Date(photo.timestamp) : new Date()
+                : photo.timestamp && typeof photo.timestamp === 'string' 
+                  ? new Date(photo.timestamp) 
+                  : new Date()
             })) || []
           };
           set({ currentInspection: inspectionWithDate });
@@ -405,7 +419,9 @@ export const useAppStore = create<AppState>()(
                 ...photo,
                 timestamp: photo.timestamp instanceof Date 
                   ? photo.timestamp 
-                  : photo.timestamp ? new Date(photo.timestamp) : new Date()
+                  : photo.timestamp && typeof photo.timestamp === 'string' 
+                    ? new Date(photo.timestamp) 
+                    : new Date()
               })) || []
             }));
           }
@@ -422,7 +438,9 @@ export const useAppStore = create<AppState>()(
                 ...photo,
                 timestamp: photo.timestamp instanceof Date 
                   ? photo.timestamp 
-                  : photo.timestamp ? new Date(photo.timestamp) : new Date()
+                  : photo.timestamp && typeof photo.timestamp === 'string' 
+                    ? new Date(photo.timestamp) 
+                    : new Date()
               })) || []
             };
           }

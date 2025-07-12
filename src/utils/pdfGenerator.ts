@@ -2,6 +2,7 @@ import RNHTMLtoPDF from 'react-native-html-to-pdf';
 import { Platform, PermissionsAndroid } from 'react-native';
 import { InspectionForm, AppSettings, BodyInspectionPoint, VehicleHistory, TireInspection } from '../types';
 import { imageToBase64, validateImage } from './imageUtils';
+import { formatDateForDisplay } from './dateUtils';
 
 export const generateInspectionPDF = async (
   inspection: InspectionForm,
@@ -406,10 +407,44 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
     
     let vehicleImage;
     if (inspection.bodyInspection.capturedImage) {
-      // La imagen capturada por ViewShot ya viene en formato base64
-      vehicleImage = inspection.bodyInspection.capturedImage;
-      console.log('BodyInspection - Usando imagen capturada, longitud:', vehicleImage.length);
-      console.log('BodyInspection - Primeros 100 caracteres:', vehicleImage.substring(0, 100));
+      // Verificar si la imagen es base64 o una ruta de archivo
+      if (inspection.bodyInspection.capturedImage.startsWith('data:image')) {
+        // Ya es base64
+        vehicleImage = inspection.bodyInspection.capturedImage;
+        console.log('BodyInspection - Imagen ya en base64, longitud:', vehicleImage.length);
+      } else if (inspection.bodyInspection.capturedImage.startsWith('file://')) {
+        // Es una ruta de archivo, intentar convertir a base64
+        try {
+          vehicleImage = await imageToBase64(inspection.bodyInspection.capturedImage);
+          console.log('BodyInspection - Imagen convertida de archivo a base64, longitud:', vehicleImage.length);
+        } catch (error) {
+          console.error('BodyInspection - Error convirtiendo imagen de archivo:', error);
+          // Usar placeholder si falla la conversión
+          const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
+          vehicleImage = 'data:image/svg+xml;base64,' + btoa(`
+            <svg width="300" height="150" xmlns="http://www.w3.org/2000/svg">
+              <rect width="300" height="150" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
+              <text x="150" y="75" text-anchor="middle" fill="#666" font-size="14">${bodyType.toUpperCase()}</text>
+            </svg>
+          `);
+        }
+      } else {
+        // Otro formato, intentar convertir
+        try {
+          vehicleImage = await imageToBase64(inspection.bodyInspection.capturedImage);
+          console.log('BodyInspection - Imagen convertida a base64, longitud:', vehicleImage.length);
+        } catch (error) {
+          console.error('BodyInspection - Error convirtiendo imagen:', error);
+          // Usar placeholder si falla la conversión
+          const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
+          vehicleImage = 'data:image/svg+xml;base64,' + btoa(`
+            <svg width="300" height="150" xmlns="http://www.w3.org/2000/svg">
+              <rect width="300" height="150" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
+              <text x="150" y="75" text-anchor="middle" fill="#666" font-size="14">${bodyType.toUpperCase()}</text>
+            </svg>
+          `);
+        }
+      }
     } else {
       // Usar una imagen placeholder para el tipo de vehículo
       const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
@@ -423,31 +458,31 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
     }
 
     const html = `
-      <div class="section-title" style="font-size:${compact ? '11px' : '16px'};">🚗 INSPECCIÓN DE CARROCERÍA</div>
-      <div style="margin: 6px 0; background: #f8f9fa; border-radius: 8px; padding: ${compact ? '6px' : '20px'}; border: 1px solid #e0e0e0;">
-        <div style="text-align: center; margin-bottom: 6px;">
-          <img src="${vehicleImage}" style="width: ${compact ? '200px' : '350px'}; height: ${compact ? '100px' : '175px'}; border-radius: 6px;" alt="Vehículo" />
+      <div class="section-title" style="font-size: 18px; margin-bottom: 20px;">🚗 INSPECCIÓN DE CARROCERÍA</div>
+      <div style="margin: 20px 0; background: #f8f9fa; border-radius: 12px; padding: 25px; border: 2px solid #e0e0e0; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+        <div style="text-align: center; margin-bottom: 25px;">
+          <img src="${vehicleImage}" style="width: 500px; height: 250px; border-radius: 8px; border: 2px solid #ddd;" alt="Vehículo" />
         </div>
-        <table style="width: 100%; border-collapse: collapse; font-size: ${compact ? '8px' : '13px'};">
+        <table style="width: 100%; border-collapse: collapse; font-size: 15px; margin-top: 20px;">
           <thead>
-            <tr style="background: linear-gradient(135deg, rgba(255,0,0,0.5), rgba(204,0,0,0.5));">
-              <th style="padding: ${compact ? '2px' : '10px'}; border: none; text-align: center; color: white; font-weight: bold;">Punto</th>
-              <th style="padding: ${compact ? '2px' : '10px'}; border: none; color: white; font-weight: bold;">Descripción</th>
-              <th style="padding: ${compact ? '2px' : '10px'}; border: none; color: white; font-weight: bold;">Observación</th>
+            <tr style="background: linear-gradient(135deg, rgba(255,0,0,0.7), rgba(204,0,0,0.7));">
+              <th style="padding: 15px; border: 2px solid rgba(224,224,224,0.6); text-align: center; color: white; font-weight: bold; font-size: 16px;">Punto</th>
+              <th style="padding: 15px; border: 2px solid rgba(224,224,224,0.6); color: white; font-weight: bold; font-size: 16px;">Descripción</th>
+              <th style="padding: 15px; border: 2px solid rgba(224,224,224,0.6); color: white; font-weight: bold; font-size: 16px;">Observación</th>
             </tr>
           </thead>
           <tbody>
             ${inspection.bodyInspection.points.map((point: BodyInspectionPoint) => `
               <tr>
-                <td style="padding: ${compact ? '2px' : '8px'}; border: 1px solid rgba(224,224,224,0.4); text-align: center; font-weight: bold; background: rgba(248,249,250,0.3);">
-                  <span style="background: #FF0000; color: white; padding: 2px 4px; border-radius: 50%; font-size: ${compact ? '8px' : '14px'};">
+                <td style="padding: 12px; border: 2px solid rgba(224,224,224,0.6); text-align: center; font-weight: bold; background: rgba(248,249,250,0.5);">
+                  <span style="background: #FF0000; color: white; padding: 6px 10px; border-radius: 50%; font-size: 16px; font-weight: bold;">
                     ${point.number}
                   </span>
                 </td>
-                <td style="padding: ${compact ? '2px' : '8px'}; border: 1px solid rgba(224,224,224,0.4); background: rgba(255,255,255,0.3);">
+                <td style="padding: 12px; border: 2px solid rgba(224,224,224,0.6); background: rgba(255,255,255,0.5); font-size: 15px;">
                   ${point.label || 'Sin descripción'}
                 </td>
-                <td style="padding: ${compact ? '2px' : '8px'}; border: 1px solid rgba(224,224,224,0.4); color: #666; background: rgba(255,255,255,0.3);">
+                <td style="padding: 12px; border: 2px solid rgba(224,224,224,0.6); color: #333; background: rgba(255,255,255,0.5); font-size: 14px;">
                   ${point.observation || 'Sin observación'}
                 </td>
               </tr>
@@ -469,9 +504,44 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
 
     let vehicleImage;
     if (inspection.tireInspection.capturedImage) {
-      // La imagen capturada por ViewShot ya viene en formato base64
-      vehicleImage = inspection.tireInspection.capturedImage;
-      console.log('TireInspection - Usando imagen capturada:', vehicleImage.substring(0, 50) + '...');
+      // Verificar si la imagen es base64 o una ruta de archivo
+      if (inspection.tireInspection.capturedImage.startsWith('data:image')) {
+        // Ya es base64
+        vehicleImage = inspection.tireInspection.capturedImage;
+        console.log('TireInspection - Imagen ya en base64, longitud:', vehicleImage.length);
+      } else if (inspection.tireInspection.capturedImage.startsWith('file://')) {
+        // Es una ruta de archivo, intentar convertir a base64
+        try {
+          vehicleImage = await imageToBase64(inspection.tireInspection.capturedImage);
+          console.log('TireInspection - Imagen convertida de archivo a base64, longitud:', vehicleImage.length);
+        } catch (error) {
+          console.error('TireInspection - Error convirtiendo imagen de archivo:', error);
+          // Usar placeholder si falla la conversión
+          const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
+          vehicleImage = 'data:image/svg+xml;base64,' + btoa(`
+            <svg width="300" height="180" xmlns="http://www.w3.org/2000/svg">
+              <rect width="300" height="180" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
+              <text x="150" y="90" text-anchor="middle" fill="#666" font-size="14">${bodyType.toUpperCase()}</text>
+            </svg>
+          `);
+        }
+      } else {
+        // Otro formato, intentar convertir
+        try {
+          vehicleImage = await imageToBase64(inspection.tireInspection.capturedImage);
+          console.log('TireInspection - Imagen convertida a base64, longitud:', vehicleImage.length);
+        } catch (error) {
+          console.error('TireInspection - Error convirtiendo imagen:', error);
+          // Usar placeholder si falla la conversión
+          const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
+          vehicleImage = 'data:image/svg+xml;base64,' + btoa(`
+            <svg width="300" height="180" xmlns="http://www.w3.org/2000/svg">
+              <rect width="300" height="180" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
+              <text x="150" y="90" text-anchor="middle" fill="#666" font-size="14">${bodyType.toUpperCase()}</text>
+            </svg>
+          `);
+        }
+      }
     } else {
       // Usar una imagen placeholder para el tipo de vehículo
       const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
@@ -485,25 +555,25 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
     }
 
     return `
-      <div class="section-title" style="font-size:${compact ? '11px' : '16px'};">🛞 INSPECCIÓN DE LLANTAS</div>
-      <div style="margin: 6px 0; background: #f8f9fa; border-radius: 8px; padding: ${compact ? '6px' : '20px'}; border: 1px solid #e0e0e0;">
-        <div style="text-align: center; margin-bottom: 6px;">
-          <img src="${vehicleImage}" style="width: ${compact ? '200px' : '350px'}; height: ${compact ? '120px' : '210px'}; border-radius: 6px;" alt="Vehículo" />
+      <div class="section-title" style="font-size: 18px; margin-bottom: 20px;">🛞 INSPECCIÓN DE LLANTAS</div>
+      <div style="margin: 20px 0; background: #f8f9fa; border-radius: 12px; padding: 25px; border: 2px solid #e0e0e0; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+        <div style="text-align: center; margin-bottom: 25px;">
+          <img src="${vehicleImage}" style="width: 500px; height: 300px; border-radius: 8px; border: 2px solid #ddd;" alt="Vehículo" />
         </div>
-        <table style="width: 100%; border-collapse: collapse; font-size: ${compact ? '8px' : '13px'};">
+        <table style="width: 100%; border-collapse: collapse; font-size: 15px; margin-top: 20px;">
           <thead>
-            <tr style="background: linear-gradient(135deg, rgba(0,102,204,0.5), rgba(0,82,163,0.5));">
-              <th style="padding: ${compact ? '2px' : '10px'}; border: none; text-align: center; color: white; font-weight: bold;">Título</th>
-              <th style="padding: ${compact ? '2px' : '10px'}; border: none; color: white; font-weight: bold;">Valor (mm)</th>
+            <tr style="background: linear-gradient(135deg, rgba(0,102,204,0.7), rgba(0,82,163,0.7));">
+              <th style="padding: 15px; border: 2px solid rgba(224,224,224,0.6); text-align: center; color: white; font-weight: bold; font-size: 16px;">Llanta</th>
+              <th style="padding: 15px; border: 2px solid rgba(224,224,224,0.6); color: white; font-weight: bold; font-size: 16px;">Valor (mm)</th>
             </tr>
           </thead>
           <tbody>
             ${inspection.tireInspection.measurements.map((measurement) => `
               <tr>
-                <td style="padding: ${compact ? '2px' : '8px'}; border: 1px solid rgba(224,224,224,0.4); text-align: center; font-weight: bold; background: rgba(248,249,250,0.3);">
+                <td style="padding: 12px; border: 2px solid rgba(224,224,224,0.6); text-align: center; font-weight: bold; background: rgba(248,249,250,0.5); font-size: 15px;">
                   ${measurement.title}
                 </td>
-                <td style="padding: ${compact ? '2px' : '8px'}; border: 1px solid rgba(224,224,224,0.4); text-align: center; font-weight: bold; color: #222; background: rgba(255,255,255,0.3);">
+                <td style="padding: 12px; border: 2px solid rgba(224,224,224,0.6); text-align: center; font-weight: bold; color: #222; background: rgba(255,255,255,0.5); font-size: 15px;">
                   ${typeof measurement.value === 'number' ? measurement.value.toFixed(2) : '-'}
                 </td>
               </tr>
@@ -517,18 +587,54 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
   const generateBatteryAndBrakeHTML = (inspection: InspectionForm) => {
     if (!inspection.tireInspection) return '';
     let html = '';
-    if (inspection.tireInspection.batteryStatus) {
-      html += `<div style="margin: 6px 0 2px 0; font-size:9px; background: #f8f9fa; border-radius: 6px; padding: 6px; border: 1px solid #e0e0e0;">
-        <b>🔋 Estado de Batería:</b> ${inspection.tireInspection.batteryStatus.percentage}%<br/>
-        ${inspection.tireInspection.batteryStatus.observations ? `<span style='color:#666;'>${inspection.tireInspection.batteryStatus.observations}</span>` : ''}
-      </div>`;
+    
+    if (inspection.tireInspection.batteryStatus || inspection.tireInspection.brakeFluidLevel) {
+      html += `
+        <div style="margin: 30px 0 20px 0; background: #f8f9fa; border-radius: 12px; padding: 25px; border: 2px solid #e0e0e0; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+          <div class="section-title" style="font-size: 18px; margin-bottom: 20px;">🔋 ESTADO DE BATERÍA Y LÍQUIDO DE FRENOS</div>
+          <div style="display: flex; gap: 20px;">
+      `;
+      
+      if (inspection.tireInspection.batteryStatus) {
+        html += `
+          <div style="flex: 1; background: white; border-radius: 8px; padding: 20px; border: 2px solid #4CAF50;">
+            <h3 style="margin: 0 0 15px 0; color: #4CAF50; font-size: 16px; font-weight: bold;">🔋 Estado de Batería</h3>
+            <div style="font-size: 16px; margin-bottom: 10px;">
+              <strong>Porcentaje:</strong> <span style="color: #4CAF50; font-weight: bold;">${inspection.tireInspection.batteryStatus.percentage}%</span>
+            </div>
+            ${inspection.tireInspection.batteryStatus.observations ? 
+              `<div style="font-size: 14px; color: #666; margin-top: 10px;">
+                <strong>Observaciones:</strong><br/>
+                ${inspection.tireInspection.batteryStatus.observations}
+              </div>` : ''
+            }
+          </div>
+        `;
+      }
+      
+      if (inspection.tireInspection.brakeFluidLevel) {
+        html += `
+          <div style="flex: 1; background: white; border-radius: 8px; padding: 20px; border: 2px solid #FF9800;">
+            <h3 style="margin: 0 0 15px 0; color: #FF9800; font-size: 16px; font-weight: bold;">🛑 Estado de Líquido de Frenos</h3>
+            <div style="font-size: 16px; margin-bottom: 10px;">
+              <strong>Nivel:</strong> <span style="color: #FF9800; font-weight: bold;">${inspection.tireInspection.brakeFluidLevel.level}</span>
+            </div>
+            ${inspection.tireInspection.brakeFluidLevel.observations ? 
+              `<div style="font-size: 14px; color: #666; margin-top: 10px;">
+                <strong>Observaciones:</strong><br/>
+                ${inspection.tireInspection.brakeFluidLevel.observations}
+              </div>` : ''
+            }
+          </div>
+        `;
+      }
+      
+      html += `
+          </div>
+        </div>
+      `;
     }
-    if (inspection.tireInspection.brakeFluidLevel) {
-      html += `<div style="margin: 2px 0 2px 0; font-size:9px; background: #f8f9fa; border-radius: 6px; padding: 6px; border: 1px solid #e0e0e0;">
-        <b>🛑 Estado de Líquido de Frenos:</b> ${inspection.tireInspection.brakeFluidLevel.level}<br/>
-        ${inspection.tireInspection.brakeFluidLevel.observations ? `<span style='color:#666;'>${inspection.tireInspection.brakeFluidLevel.observations}</span>` : ''}
-      </div>`;
-    }
+    
     return html;
   };
 
@@ -565,7 +671,7 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
               <h4 style="margin: 0 0 10px 0; color: #FF0000; font-size: 16px;">Foto #${photo.label}</h4>
               ${photo.observations ? `<p style="margin: 0; color: #666; font-size: 14px; line-height: 1.4;">${photo.observations}</p>` : ''}
               <p style="margin: 10px 0 0 0; color: #999; font-size: 12px;">
-                ${photo.timestamp ? photo.timestamp.toLocaleDateString('es-CO') : 'Sin fecha'}
+                ${formatDateForDisplay(photo.timestamp)}
               </p>
             </div>
           </div>
@@ -743,19 +849,22 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
     ${generateInspectionItemsHTML(inspection, 'Interior del Vehículo')}
   </div>
 
-  <!-- HOJA 4: Inspección de Carrocería e Inspección de Llantas -->
-  <div class="container page-break" style="position: relative; min-height: 600px;">
+  <!-- HOJA 4: Inspección de Carrocería -->
+  ${inspection.bodyInspection ? `
+  <div class="container page-break" style="position: relative;">
     ${watermarkBase64 ? `<img src="${watermarkBase64}" class="watermark" alt="Marca de Agua" />` : ''}
-    <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: flex-start;">
-      <div style="flex: 1 1 320px; min-width: 180px; max-width: 48%;">
-        ${inspection.bodyInspection ? await generateBodyInspectionHTML(inspection, true) : ''}
-      </div>
-      <div style="flex: 1 1 320px; min-width: 180px; max-width: 48%;">
-        ${inspection.tireInspection ? await generateTireInspectionHTML(inspection, true) : ''}
-        ${generateBatteryAndBrakeHTML(inspection)}
-      </div>
-    </div>
+    ${await generateBodyInspectionHTML(inspection, false)}
   </div>
+  ` : ''}
+
+  <!-- HOJA 5: Inspección de Llantas y Estado de Batería/Frenos -->
+  ${inspection.tireInspection ? `
+  <div class="container page-break" style="position: relative;">
+    ${watermarkBase64 ? `<img src="${watermarkBase64}" class="watermark" alt="Marca de Agua" />` : ''}
+    ${await generateTireInspectionHTML(inspection, false)}
+    ${generateBatteryAndBrakeHTML(inspection)}
+  </div>
+  ` : ''}
 
   <!-- HOJA 5+: Inspección Fotográfica (máximo 2 fotos por hoja) -->
   ${generatePhotoInspectionHTML(inspection)}

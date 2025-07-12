@@ -16,6 +16,13 @@ export interface ImageInfo {
 export const imageToBase64 = async (imageUri: string): Promise<string> => {
   try {
     if (Platform.OS === 'android') {
+      // Verificar si el archivo existe antes de intentar leerlo
+      const fileExists = await RNFS.exists(imageUri);
+      if (!fileExists) {
+        console.warn('Archivo de imagen no existe:', imageUri);
+        throw new Error('Archivo de imagen no encontrado');
+      }
+      
       // En Android, leer el archivo como base64
       const base64 = await RNFS.readFile(imageUri, 'base64');
       return `data:image/jpeg;base64,${base64}`;
@@ -25,7 +32,7 @@ export const imageToBase64 = async (imageUri: string): Promise<string> => {
     }
   } catch (error) {
     console.error('Error convirtiendo imagen a base64:', error);
-    return imageUri; // Retornar la URI original como fallback
+    throw error; // Re-lanzar el error para que el código que llama pueda manejarlo
   }
 };
 

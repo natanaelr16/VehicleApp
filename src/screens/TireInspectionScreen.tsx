@@ -218,8 +218,25 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
       if (measurements.length > 0 && viewShotRef.current?.capture) {
         try {
           const result = await viewShotRef.current.capture();
-          capturedImage = result || undefined;
-          console.log('Imagen de llantas capturada:', capturedImage);
+          console.log('Resultado de ViewShot (llantas):', result);
+          console.log('Tipo de resultado (llantas):', typeof result);
+          
+          // Si el resultado es una ruta de archivo, convertir a base64
+          if (result && typeof result === 'string' && result.startsWith('file://')) {
+            try {
+              const RNFS = require('react-native-fs');
+              const base64 = await RNFS.readFile(result, 'base64');
+              capturedImage = `data:image/png;base64,${base64}`;
+              console.log('Imagen de llantas convertida a base64, longitud:', capturedImage.length);
+            } catch (convertError) {
+              console.error('Error convirtiendo imagen de llantas a base64:', convertError);
+              capturedImage = result; // Usar la ruta original como fallback
+            }
+          } else {
+            capturedImage = result || undefined;
+          }
+          
+          console.log('Imagen final de llantas capturada:', capturedImage?.substring(0, 100));
         } catch (captureError) {
           console.error('Error capturando imagen de llantas:', captureError);
         }
