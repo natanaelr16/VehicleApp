@@ -718,9 +718,9 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
     .company-info p { margin: 0; font-size: 13px; color: #444; }
     .report-title { text-align: center; font-size: 20px; font-weight: bold; margin: 18px 0 12px 0; letter-spacing: 1px; }
     .section-title { background: rgba(240, 240, 240, 0.7); padding: 8px 12px; font-size: 16px; font-weight: bold; margin: 24px 0 8px 0; border-radius: 6px; }
-    .info-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; background: rgba(255, 255, 255, 0.6); }
-    .info-table th, .info-table td { border: 1px solid rgba(221, 221, 221, 0.6); padding: 7px 10px; font-size: 13px; background: rgba(255, 255, 255, 0.4); }
-    .info-table th { background: rgba(248, 249, 250, 0.5); font-weight: bold; color: #333; }
+    .info-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; background: transparent; }
+    .info-table th, .info-table td { border: 1px solid rgba(221, 221, 221, 0.6); padding: 7px 10px; font-size: 13px; background: transparent; }
+    .info-table th { background: transparent; font-weight: bold; color: #333; }
     .diagnostico-list { margin: 0 0 12px 18px; font-size: 14px; }
     .aprobado-btn, .noaprobado-btn { display: inline-block; padding: 8px 24px; border-radius: 18px; font-weight: bold; font-size: 15px; margin-right: 10px; }
     .aprobado-btn { background: #4CAF50; color: #fff; }

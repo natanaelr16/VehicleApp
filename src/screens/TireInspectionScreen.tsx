@@ -221,19 +221,46 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
           console.log('Resultado de ViewShot (llantas):', result);
           console.log('Tipo de resultado (llantas):', typeof result);
           
-          // Si el resultado es una ruta de archivo, convertir a base64
-          if (result && typeof result === 'string' && result.startsWith('file://')) {
-            try {
-              const RNFS = require('react-native-fs');
-              const base64 = await RNFS.readFile(result, 'base64');
-              capturedImage = `data:image/png;base64,${base64}`;
-              console.log('Imagen de llantas convertida a base64, longitud:', capturedImage.length);
-            } catch (convertError) {
-              console.error('Error convirtiendo imagen de llantas a base64:', convertError);
-              capturedImage = result; // Usar la ruta original como fallback
+          // Convertir siempre a base64 para evitar problemas con archivos temporales
+          if (result && typeof result === 'string') {
+            if (result.startsWith('data:image')) {
+              // Ya es base64
+              capturedImage = result;
+              console.log('Imagen de llantas ya en base64, longitud:', capturedImage.length);
+            } else if (result.startsWith('file://')) {
+              // Es una ruta de archivo, convertir a base64
+              try {
+                const RNFS = require('react-native-fs');
+                const base64 = await RNFS.readFile(result, 'base64');
+                capturedImage = `data:image/png;base64,${base64}`;
+                console.log('Imagen de llantas convertida a base64, longitud:', capturedImage.length);
+              } catch (convertError) {
+                console.error('Error convirtiendo imagen de llantas a base64:', convertError);
+                // Usar placeholder si falla la conversión
+                capturedImage = `data:image/svg+xml;base64,${btoa(`
+                  <svg width="300" height="180" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="300" height="180" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
+                    <text x="150" y="90" text-anchor="middle" fill="#666" font-size="14">ERROR</text>
+                  </svg>
+                `)}`;
+              }
+            } else {
+              // Otro formato, intentar convertir
+              try {
+                const RNFS = require('react-native-fs');
+                const base64 = await RNFS.readFile(result, 'base64');
+                capturedImage = `data:image/png;base64,${base64}`;
+                console.log('Imagen de llantas convertida a base64, longitud:', capturedImage.length);
+              } catch (convertError) {
+                console.error('Error convirtiendo imagen de llantas a base64:', convertError);
+                capturedImage = `data:image/svg+xml;base64,${btoa(`
+                  <svg width="300" height="180" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="300" height="180" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
+                    <text x="150" y="90" text-anchor="middle" fill="#666" font-size="14">ERROR</text>
+                  </svg>
+                `)}`;
+              }
             }
-          } else {
-            capturedImage = result || undefined;
           }
           
           console.log('Imagen final de llantas capturada:', capturedImage?.substring(0, 100));
