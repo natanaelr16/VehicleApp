@@ -7,11 +7,13 @@ import {
   ScrollView,
   Alert,
   Image,
+  Dimensions,
 } from 'react-native';
 import { useAppStore } from '../stores/appStore';
 import { InspectionForm } from '../types';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { getResponsiveDimensions, isTablet, getResponsiveColors } from '../utils/responsive';
 
 type RootStackParamList = {
   Home: undefined;
@@ -33,6 +35,9 @@ const HomeScreen: React.FC = () => {
   } = useAppStore();
 
   const navigation = useNavigation<NavigationProp>();
+  const dimensions = getResponsiveDimensions();
+  const colors = getResponsiveColors();
+  const tablet = isTablet();
 
   const createNewInspection = () => {
     clearCurrentInspection();
@@ -108,82 +113,188 @@ const HomeScreen: React.FC = () => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.settingsButton} onPress={() => navigation.navigate('Settings')}>
-          <Text style={styles.settingsButtonText}>⚙️</Text>
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <View style={styles.logoTitleContainer}>
-            {settings.companyLogo && (
-              <Image source={{ uri: settings.companyLogo }} style={styles.companyLogo} />
-            )}
-            <View style={styles.titleContainer}>
-              <Text style={styles.title}>Inspección Vehicular</Text>
-              <Text style={styles.subtitle}>{settings.companyName}</Text>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.primary }]}>
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerLeftSection}>
+            <View style={[styles.logoTitleContainer, { gap: tablet ? 14 : 10 }]}>
+              {settings.companyLogo && (
+                              <Image 
+                source={{ uri: settings.companyLogo }} 
+                style={[styles.companyLogo, { 
+                  width: tablet ? 100 : 70,
+                  height: tablet ? 50 : 35,
+                }]} 
+              />
+              )}
+              <View style={styles.titleContainer}>
+                <Text style={[styles.title, { fontSize: dimensions.fontSize.xlarge }]}>
+                  Inspección Vehicular
+                </Text>
+                <Text style={[styles.subtitle, { fontSize: dimensions.fontSize.medium }]}>
+                  {settings.companyName}
+                </Text>
+              </View>
             </View>
           </View>
+          
+          <TouchableOpacity 
+            style={[styles.settingsButton, { 
+              padding: tablet ? 15 : 12,
+              borderRadius: tablet ? 25 : 22,
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.2)',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.3,
+              shadowRadius: 4,
+              elevation: 5,
+            }]} 
+            onPress={() => navigation.navigate('Settings')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.settingsButtonText, { 
+              fontSize: tablet ? 24 : 20,
+              color: '#FFFFFF',
+              textShadowColor: 'rgba(0, 0, 0, 0.3)',
+              textShadowOffset: { width: 0, height: 1 },
+              textShadowRadius: 2,
+            }]}>⚙️</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
-      <TouchableOpacity style={styles.newInspectionButton} onPress={createNewInspection}>
-        <Text style={styles.newInspectionText}>+ Nueva Inspección</Text>
-      </TouchableOpacity>
+      <View style={[styles.contentContainer, { maxWidth: dimensions.layout.maxWidth, alignSelf: 'center', width: '100%' }]}>
+        <TouchableOpacity 
+          style={[styles.newInspectionButton, { 
+            backgroundColor: colors.error,
+            margin: dimensions.padding.large,
+            padding: dimensions.padding.large,
+            borderRadius: dimensions.button.borderRadius,
+          }]} 
+          onPress={createNewInspection}
+        >
+          <Text style={[styles.newInspectionText, { 
+            fontSize: dimensions.fontSize.large,
+            color: colors.surface,
+          }]}>
+            + Nueva Inspección
+          </Text>
+        </TouchableOpacity>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Inspecciones Recientes</Text>
-        {savedInspections.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>
-              No hay inspecciones guardadas
+        <View style={[styles.section, { margin: dimensions.padding.large }]}>
+          <Text style={[styles.sectionTitle, { 
+            fontSize: dimensions.fontSize.xlarge,
+            marginBottom: dimensions.padding.medium,
+          }]}>
+            Inspecciones Recientes
+          </Text>
+          {savedInspections.length === 0 ? (
+            <View style={[styles.emptyState, { padding: dimensions.padding.xlarge }]}>
+              <Text style={[styles.emptyStateText, { fontSize: dimensions.fontSize.large }]}>
+                No hay inspecciones guardadas
+              </Text>
+              <Text style={[styles.emptyStateSubtext, { fontSize: dimensions.fontSize.medium }]}>
+                Crea tu primera inspección tocando el botón de arriba
+              </Text>
+            </View>
+          ) : (
+            <View style={tablet ? styles.tabletGrid : null}>
+              {savedInspections.slice(0, tablet ? 8 : 5).map((inspection) => {
+                const status = getCardStatus(inspection);
+                return (
+                  <TouchableOpacity
+                    key={inspection.id}
+                    style={[styles.inspectionCard, { 
+                      backgroundColor: colors.surface,
+                      padding: dimensions.layout.cardPadding,
+                      borderRadius: dimensions.button.borderRadius,
+                      marginBottom: dimensions.padding.medium,
+                      flex: tablet ? 1 : undefined,
+                      marginHorizontal: tablet ? dimensions.grid.gap / 2 : 0,
+                    }]}
+                    onPress={() => loadInspection(inspection)}
+                    onLongPress={() => handleDeleteInspection(inspection.id, inspection.vehicleInfo.plate)}
+                  >
+                    <View style={styles.inspectionHeader}>
+                      <Text style={[styles.plateText, { fontSize: dimensions.fontSize.large }]}>
+                        {inspection.vehicleInfo.plate || 'Sin placa'}
+                      </Text>
+                      <View style={[styles.statusBadge, { backgroundColor: status.color }]}> 
+                        <Text style={[styles.statusText, { fontSize: dimensions.fontSize.small }]}>
+                          {status.text}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.vehicleInfo, { fontSize: dimensions.fontSize.medium }]}>
+                      {inspection.vehicleInfo.brand} {inspection.vehicleInfo.model} ({inspection.vehicleInfo.year})
+                    </Text>
+                    <Text style={[styles.dateText, { fontSize: dimensions.fontSize.small }]}>
+                      {formatDate(inspection.inspectionDate)}
+                    </Text>
+                    <Text style={[styles.inspectorText, { fontSize: dimensions.fontSize.small }]}>
+                      Inspector: {inspection.inspectorName || 'Sin asignar'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        <View style={[styles.statsContainer, { 
+          margin: dimensions.padding.large,
+          gap: dimensions.padding.medium,
+        }]}>
+          <View style={[styles.statCard, { 
+            backgroundColor: colors.surface,
+            padding: dimensions.padding.large,
+            borderRadius: dimensions.button.borderRadius,
+            flex: 1,
+          }]}>
+            <Text style={[styles.statNumber, { 
+              fontSize: tablet ? 32 : 24,
+              color: colors.primary,
+            }]}>
+              {savedInspections.length}
             </Text>
-            <Text style={styles.emptyStateSubtext}>
-              Crea tu primera inspección tocando el botón de arriba
+            <Text style={[styles.statLabel, { fontSize: dimensions.fontSize.small }]}>
+              Total Inspecciones
             </Text>
           </View>
-        ) : (
-          savedInspections.slice(0, 5).map((inspection) => {
-            const status = getCardStatus(inspection);
-            return (
-              <TouchableOpacity
-                key={inspection.id}
-                style={styles.inspectionCard}
-                onPress={() => loadInspection(inspection)}
-                onLongPress={() => handleDeleteInspection(inspection.id, inspection.vehicleInfo.plate)}
-              >
-                <View style={styles.inspectionHeader}>
-                  <Text style={styles.plateText}>{inspection.vehicleInfo.plate || 'Sin placa'}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: status.color }]}> 
-                    <Text style={styles.statusText}>{status.text}</Text>
-                  </View>
-                </View>
-                <Text style={styles.vehicleInfo}>
-                  {inspection.vehicleInfo.brand} {inspection.vehicleInfo.model} ({inspection.vehicleInfo.year})
-                </Text>
-                <Text style={styles.dateText}>
-                  {formatDate(inspection.inspectionDate)}
-                </Text>
-                <Text style={styles.inspectorText}>
-                  Inspector: {inspection.inspectorName || 'Sin asignar'}
-                </Text>
-              </TouchableOpacity>
-            );
-          })
-        )}
-      </View>
-
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{savedInspections.length}</Text>
-          <Text style={styles.statLabel}>Total Inspecciones</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{savedInspections.filter(i => (i.resultadoInspeccion || i.overallStatus) === 'approved').length}</Text>
-          <Text style={styles.statLabel}>Aprobadas</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{savedInspections.filter(i => (i.resultadoInspeccion || i.overallStatus) === 'rejected').length}</Text>
-          <Text style={styles.statLabel}>Rechazadas</Text>
+          <View style={[styles.statCard, { 
+            backgroundColor: colors.surface,
+            padding: dimensions.padding.large,
+            borderRadius: dimensions.button.borderRadius,
+            flex: 1,
+          }]}>
+            <Text style={[styles.statNumber, { 
+              fontSize: tablet ? 32 : 24,
+              color: colors.success,
+            }]}>
+              {savedInspections.filter(i => (i.resultadoInspeccion || i.overallStatus) === 'approved').length}
+            </Text>
+            <Text style={[styles.statLabel, { fontSize: dimensions.fontSize.small }]}>
+              Aprobadas
+            </Text>
+          </View>
+          <View style={[styles.statCard, { 
+            backgroundColor: colors.surface,
+            padding: dimensions.padding.large,
+            borderRadius: dimensions.button.borderRadius,
+            flex: 1,
+          }]}>
+            <Text style={[styles.statNumber, { 
+              fontSize: tablet ? 32 : 24,
+              color: colors.error,
+            }]}>
+              {savedInspections.filter(i => (i.resultadoInspeccion || i.overallStatus) === 'rejected').length}
+            </Text>
+            <Text style={[styles.statLabel, { fontSize: dimensions.fontSize.small }]}>
+              Rechazadas
+            </Text>
+          </View>
         </View>
       </View>
     </ScrollView>
@@ -213,10 +324,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  contentContainer: {
+    flex: 1,
+  },
   header: {
     backgroundColor: '#000000',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
     paddingTop: 40,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+  headerLeftSection: {
+    flex: 1,
+    marginRight: 20,
   },
   title: {
     fontSize: 22,
@@ -341,10 +466,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   settingsButton: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    zIndex: 1,
+    alignSelf: 'flex-start',
     backgroundColor: 'rgba(255,255,255,0.2)',
     padding: 10,
     borderRadius: 20,
@@ -362,7 +484,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    gap: 15,
+    gap: 10,
     width: '100%',
   },
   titleContainer: {
@@ -372,6 +494,11 @@ const styles = StyleSheet.create({
     width: 100,
     height: 50,
     borderRadius: 6,
+  },
+  tabletGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
 });
 

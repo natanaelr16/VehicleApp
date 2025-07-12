@@ -11,62 +11,55 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import { useAppStore } from '../stores/appStore';
 import { VehicleHistory } from '../types';
+import AnimatedContent from './AnimatedContent';
+import { useTabAnimation } from '../hooks/useTabAnimation';
 
-export const VehicleHistoryMenuTabs: React.FC<{activeTab: string, setActiveTab: (tab: any) => void}> = ({activeTab, setActiveTab}) => (
-  <View style={styles.header}>
-    <Text style={styles.headerTitle}>📋 Historial del Vehículo (RUNT)</Text>
-    <View style={styles.tabContainer}>
-      <TouchableOpacity
-        style={[styles.tab, activeTab === 'basic' && styles.activeTab]}
-        onPress={() => setActiveTab('basic')}
-      >
-        <Text style={[styles.tabText, activeTab === 'basic' && styles.activeTabText]}>
-          🚗 Básico
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.tab, activeTab === 'taxes' && styles.activeTab]}
-        onPress={() => setActiveTab('taxes')}
-      >
-        <Text style={[styles.tabText, activeTab === 'taxes' && styles.activeTabText]}>
-          💰 Impuestos
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.tab, activeTab === 'documents' && styles.activeTab]}
-        onPress={() => setActiveTab('documents')}
-      >
-        <Text style={[styles.tabText, activeTab === 'documents' && styles.activeTabText]}>
-          📄 Documentos
-        </Text>
-      </TouchableOpacity>
+export const VehicleHistoryMenuTabs: React.FC<{activeTab: string, setActiveTab: (tab: any) => void}> = ({activeTab, setActiveTab}) => {
+  const handleTabPress = (tab: string) => {
+    // Animar la transición suavemente
+    setActiveTab(tab);
+  };
+
+  return (
+    <View style={styles.header}>
+      <Text style={styles.headerTitle}>📋 Historial del Vehículo (RUNT)</Text>
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'basic' && styles.activeTab]}
+          onPress={() => handleTabPress('basic')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabText, activeTab === 'basic' && styles.activeTabText]}>
+            🚗 Básico
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'taxes' && styles.activeTab]}
+          onPress={() => handleTabPress('taxes')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabText, activeTab === 'taxes' && styles.activeTabText]}>
+            💰 Impuestos
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'documents' && styles.activeTab]}
+          onPress={() => handleTabPress('documents')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabText, activeTab === 'documents' && styles.activeTabText]}>
+            📄 Documentos
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 export const VehicleHistoryTabContent: React.FC<{activeTab: string}> = ({activeTab}) => {
   const { currentInspection, updateVehicleHistory } = useAppStore();
   const [forceUpdate, setForceUpdate] = useState(0);
-  
-  // Animación de despliegue
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    // Animar entrada cuando el componente se monta
-    Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+  const { getAnimatedStyle } = useTabAnimation({ activeTab });
 
   if (!currentInspection) {
     return (
@@ -160,10 +153,10 @@ export const VehicleHistoryTabContent: React.FC<{activeTab: string}> = ({activeT
 
   return (
     <View style={styles.container}>
-      <Animated.ScrollView 
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+      <Animated.View style={[styles.content, getAnimatedStyle()]}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+        >
         {activeTab === 'basic' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🚗 Información Básica</Text>
@@ -417,7 +410,8 @@ export const VehicleHistoryTabContent: React.FC<{activeTab: string}> = ({activeT
             )}
           </View>
         )}
-      </Animated.ScrollView>
+        </ScrollView>
+      </Animated.View>
     </View>
   );
 };
@@ -447,27 +441,41 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 10,
-    padding: 2,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    padding: 3,
     marginBottom: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   tab: {
     flex: 1,
-    paddingVertical: 7,
+    paddingVertical: 8,
     alignItems: 'center',
-    borderRadius: 7,
+    borderRadius: 9,
+    marginHorizontal: 1,
   },
   activeTab: {
     backgroundColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   tabText: {
     color: 'white',
     fontWeight: '600',
     fontSize: 13,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   activeTabText: {
     color: '#FF0000',
+    textShadowColor: 'transparent',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 0,
   },
   content: {
     flex: 1,

@@ -1,0 +1,38 @@
+# Dockerfile para iOS Testing desde Windows
+FROM ubuntu:20.04
+
+# Evitar prompts interactivos durante la instalación
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    git \
+    build-essential \
+    python3 \
+    python3-pip \
+    nodejs \
+    npm \
+    openjdk-11-jdk \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Instalar Node.js versión LTS
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs
+
+# Instalar React Native CLI
+RUN npm install -g @react-native-community/cli
+
+# Instalar Expo CLI (alternativa)
+RUN npm install -g @expo/cli
+
+# Configurar directorio de trabajo
+WORKDIR /app
+
+# Exponer puertos
+EXPOSE 8081 19000
+
+# Comando por defecto
+CMD ["bash"] 

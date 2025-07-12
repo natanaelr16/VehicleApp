@@ -1,8 +1,9 @@
 import RNHTMLtoPDF from 'react-native-html-to-pdf';
 import { Platform, PermissionsAndroid } from 'react-native';
 import { InspectionForm, AppSettings, BodyInspectionPoint, VehicleHistory, TireInspection } from '../types';
-import { imageToBase64, validateImage } from './imageUtils';
+import { imageToBase64, validateImage, debugImageInfo, safeImageToBase64 } from './imageUtils';
 import { formatDateForDisplay } from './dateUtils';
+import { VEHICLE_IMAGES_BASE64 } from './vehicleImagesBase64';
 
 export const generateInspectionPDF = async (
   inspection: InspectionForm,
@@ -62,14 +63,14 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
   let watermarkBase64 = '';
   if (settings.companyLogo && validateImage(settings.companyLogo)) {
     try {
-      logoBase64 = await imageToBase64(settings.companyLogo);
+      logoBase64 = await safeImageToBase64(settings.companyLogo, 'CompanyLogo');
     } catch (error) {
       console.error('Error convirtiendo logo a base64:', error);
     }
   }
   if (settings.watermarkLogo && validateImage(settings.watermarkLogo)) {
     try {
-      watermarkBase64 = await imageToBase64(settings.watermarkLogo);
+      watermarkBase64 = await safeImageToBase64(settings.watermarkLogo, 'WatermarkLogo');
     } catch (error) {
       console.error('Error convirtiendo marca de agua a base64:', error);
     }
@@ -217,91 +218,80 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
   }).join('');
 
   // Generar HTML para la inspección de carrocería si existe
-  let bodyInspectionHTML = '';
-  if (inspection.bodyInspection) {
-    let vehicleImage;
-    if (inspection.bodyInspection.capturedImage) {
-      // Si la imagen no es base64, conviértela
-      if (inspection.bodyInspection.capturedImage.startsWith('data:image')) {
-        vehicleImage = inspection.bodyInspection.capturedImage;
-      } else {
-        try {
-          vehicleImage = await imageToBase64(inspection.bodyInspection.capturedImage);
-        } catch (e) {
-          vehicleImage = '';
-        }
-      }
-      console.log('Usando imagen capturada para inspección de carrocería');
-    } else {
-      // Usar una imagen placeholder para el tipo de vehículo
-      const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
-      vehicleImage = 'data:image/svg+xml;base64,' + btoa(`
-        <svg width="300" height="150" xmlns="http://www.w3.org/2000/svg">
-          <rect width="300" height="150" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
-          <text x="150" y="75" text-anchor="middle" fill="#666" font-size="14">${bodyType.toUpperCase()}</text>
-        </svg>
-      `);
-      console.log('Usando imagen placeholder para inspección de carrocería');
+  // Función para generar HTML de inspección de carrocería
+  const generateBodyInspectionHTML = async (inspection: InspectionForm, compact = false) => {
+    console.log('generateBodyInspectionHTML - Iniciando...');
+    if (!inspection.bodyInspection) {
+      console.log('generateBodyInspectionHTML - No hay bodyInspection');
+      return '';
     }
 
-    bodyInspectionHTML = `
-      <div style="margin: 30px 0; page-break-inside: avoid; background: #f8f9fa; border-radius: 12px; padding: 20px; border: 1px solid #e0e0e0;">
-        <h3 style="color: #000; border-bottom: 2px solid #FF0000; padding-bottom: 15px; margin-bottom: 20px; font-size: 20px;">
-          🚗 Inspección de Carrocería
-        </h3>
-        <div style="display: flex; gap: 20px; margin-bottom: 20px;">
-          <div style="flex: 1;">
-            <p><strong>Tipo de Vehículo:</strong> ${inspection.vehicleInfo.bodyType || 'No especificado'}</p>
-            <p><strong>Puntos Inspeccionados:</strong> 
-              <span style="background: #FF0000; color: white; padding: 4px 8px; border-radius: 12px; font-weight: bold;">
-                ${inspection.bodyInspection.points.length}
-              </span>
-            </p>
-          </div>
+    console.log('generateBodyInspectionHTML - capturedImage:', inspection.bodyInspection.capturedImage ? 'Present' : 'Missing');
+    console.log('generateBodyInspectionHTML - capturedImage length:', inspection.bodyInspection.capturedImage?.length || 0);
+    console.log('generateBodyInspectionHTML - capturedImage starts with data:image:', inspection.bodyInspection.capturedImage?.startsWith('data:image'));
+    debugImageInfo(inspection.bodyInspection.capturedImage || '', 'BodyInspection');
+    
+    let vehicleImage;
+    const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
+    
+    // Usar imagen capturada si está disponible y es válida
+    if (inspection.bodyInspection.capturedImage && inspection.bodyInspection.capturedImage.startsWith('data:image')) {
+      vehicleImage = inspection.bodyInspection.capturedImage;
+      console.log('BodyInspection - Usando imagen capturada con puntos marcados, longitud:', vehicleImage.length);
+      console.log('BodyInspection - Imagen capturada preview:', vehicleImage.substring(0, 100));
+    } else {
+      // Usar imagen estática del tipo de vehículo como fallback
+      const getVehicleImage = (type: string) => {
+        return VEHICLE_IMAGES_BASE64[type as keyof typeof VEHICLE_IMAGES_BASE64] || VEHICLE_IMAGES_BASE64.sedan;
+      };
+      vehicleImage = getVehicleImage(bodyType);
+      console.log('BodyInspection - Usando imagen estática como fallback para:', bodyType);
+      console.log('BodyInspection - Imagen estática preview:', vehicleImage.substring(0, 100));
+    }
+
+    const html = `
+      <div class="section-title" style="font-size: 18px; margin-bottom: 20px;">🚗 INSPECCIÓN DE CARROCERÍA</div>
+      <div style="margin: 20px 0; background: #f8f9fa; border-radius: 12px; padding: 25px; border: 2px solid #e0e0e0; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+        <div style="text-align: center; margin-bottom: 25px;">
+          <img src="${vehicleImage}" style="width: 500px; height: 250px; border-radius: 8px; border: 2px solid #ddd;" alt="Vehículo con puntos de inspección" />
         </div>
-        
-        ${inspection.bodyInspection.points.length > 0 ? `
-          <div style="text-align: center; margin: 20px 0;">
-            <div style="display: inline-block; border: 2px solid #FF0000; border-radius: 8px; padding: 15px; background: white;">
-              <img src="${vehicleImage}" 
-                   style="width: 350px; height: 175px; border-radius: 6px;" 
-                   alt="Vehículo ${inspection.vehicleInfo.bodyType || 'sedan'}" />
-            </div>
-            <p style="margin-top: 15px; font-size: 12px; color: #666; font-style: italic;">
-              <strong>Leyenda:</strong> Los números rojos indican los puntos de inspección donde se encontraron daños o condiciones que requieren atención.
-            </p>
-          </div>
-          
-          <table style="width: 100%; border-collapse: collapse; margin-top: 20px; background: rgba(255,255,255,0.8); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <thead>
-              <tr style="background: linear-gradient(135deg, rgba(255,0,0,0.7), rgba(204,0,0,0.7));">
-                <th style="padding: 15px; border: none; text-align: center; color: white; font-weight: bold;">Punto</th>
-                <th style="padding: 15px; border: none; color: white; font-weight: bold;">Descripción</th>
-                <th style="padding: 15px; border: none; color: white; font-weight: bold;">Observación</th>
+        <table style="width: 100%; border-collapse: collapse; font-size: 15px; margin-top: 20px;">
+          <thead>
+            <tr style="background: linear-gradient(135deg, rgba(255,0,0,0.7), rgba(204,0,0,0.7));">
+              <th style="padding: 15px; border: 2px solid rgba(224,224,224,0.6); text-align: center; color: white; font-weight: bold; font-size: 16px;">Punto</th>
+              <th style="padding: 15px; border: 2px solid rgba(224,224,224,0.6); color: white; font-weight: bold; font-size: 16px;">Descripción</th>
+              <th style="padding: 15px; border: 2px solid rgba(224,224,224,0.6); color: white; font-weight: bold; font-size: 16px;">Observación</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${inspection.bodyInspection.points.map((point: BodyInspectionPoint) => `
+              <tr>
+                <td style="padding: 12px; border: 2px solid rgba(224,224,224,0.6); text-align: center; font-weight: bold; background: rgba(248,249,250,0.5);">
+                  <span style="background: #FF0000; color: white; padding: 6px 10px; border-radius: 50%; font-size: 16px; font-weight: bold;">
+                    ${point.number}
+                  </span>
+                </td>
+                <td style="padding: 12px; border: 2px solid rgba(224,224,224,0.6); background: rgba(255,255,255,0.5); font-size: 15px;">
+                  ${point.label || 'Sin descripción'}
+                </td>
+                <td style="padding: 12px; border: 2px solid rgba(224,224,224,0.6); color: #333; background: rgba(255,255,255,0.5); font-size: 14px;">
+                  ${point.observation || 'Sin observación'}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              ${inspection.bodyInspection.points.map((point: BodyInspectionPoint) => `
-                <tr>
-                  <td style="padding: 12px; border: 1px solid rgba(224,224,224,0.8); text-align: center; font-weight: bold; background: rgba(248,249,250,0.6);">
-                    <span style="background: #FF0000; color: white; padding: 6px 10px; border-radius: 50%; font-size: 14px;">
-                      ${point.number}
-                    </span>
-                  </td>
-                  <td style="padding: 12px; border: 1px solid rgba(224,224,224,0.8); background: rgba(255,255,255,0.6);">
-                    ${point.label || 'Sin descripción'}
-                  </td>
-                  <td style="padding: 12px; border: 1px solid rgba(224,224,224,0.8); color: #666; background: rgba(255,255,255,0.6);">
-                    ${point.observation || 'Sin observación'}
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        ` : '<p style="text-align: center; color: #666; font-style: italic;">No se realizaron puntos de inspección en la carrocería.</p>'}
+            `).join('')}
+          </tbody>
+        </table>
       </div>
     `;
-  }
+    
+    console.log('generateBodyInspectionHTML - HTML generado, longitud:', html.length);
+    console.log('generateBodyInspectionHTML - Imagen en HTML:', html.includes(vehicleImage.substring(0, 50)));
+    
+    return html;
+  };
+
+  // Generar HTML de inspección de carrocería usando la función async
+  const bodyInspectionHTML = await generateBodyInspectionHTML(inspection, false);
 
   // Función para generar HTML de items de inspección
   const generateInspectionItemsHTML = (inspection: InspectionForm, groupTitle?: string) => {
@@ -395,172 +385,47 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
     return html;
   };
 
-  // Función para generar HTML de inspección de carrocería
-  const generateBodyInspectionHTML = async (inspection: InspectionForm, compact = false) => {
-    console.log('generateBodyInspectionHTML - Iniciando...');
-    if (!inspection.bodyInspection) {
-      console.log('generateBodyInspectionHTML - No hay bodyInspection');
+  // Función para generar HTML de inspección de llantas
+  const generateTireInspectionHTML = async (inspection: InspectionForm, compact = false) => {
+    if (!inspection.tireInspection) {
+      console.log('generateTireInspectionHTML - No hay tireInspection');
       return '';
     }
 
-    console.log('generateBodyInspectionHTML - capturedImage:', inspection.bodyInspection.capturedImage ? 'Present' : 'Missing');
-    
-    let vehicleImage;
-    if (inspection.bodyInspection.capturedImage) {
-      // Verificar si la imagen es base64 o una ruta de archivo
-      if (inspection.bodyInspection.capturedImage.startsWith('data:image')) {
-        // Ya es base64
-        vehicleImage = inspection.bodyInspection.capturedImage;
-        console.log('BodyInspection - Imagen ya en base64, longitud:', vehicleImage.length);
-      } else if (inspection.bodyInspection.capturedImage.startsWith('file://')) {
-        // Es una ruta de archivo, intentar convertir a base64
-        try {
-          vehicleImage = await imageToBase64(inspection.bodyInspection.capturedImage);
-          console.log('BodyInspection - Imagen convertida de archivo a base64, longitud:', vehicleImage.length);
-        } catch (error) {
-          console.error('BodyInspection - Error convirtiendo imagen de archivo:', error);
-          // Usar placeholder si falla la conversión
-          const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
-          vehicleImage = 'data:image/svg+xml;base64,' + btoa(`
-            <svg width="300" height="150" xmlns="http://www.w3.org/2000/svg">
-              <rect width="300" height="150" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
-              <text x="150" y="75" text-anchor="middle" fill="#666" font-size="14">${bodyType.toUpperCase()}</text>
-            </svg>
-          `);
-        }
-      } else {
-        // Otro formato, intentar convertir
-        try {
-          vehicleImage = await imageToBase64(inspection.bodyInspection.capturedImage);
-          console.log('BodyInspection - Imagen convertida a base64, longitud:', vehicleImage.length);
-        } catch (error) {
-          console.error('BodyInspection - Error convirtiendo imagen:', error);
-          // Usar placeholder si falla la conversión
-          const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
-          vehicleImage = 'data:image/svg+xml;base64,' + btoa(`
-            <svg width="300" height="150" xmlns="http://www.w3.org/2000/svg">
-              <rect width="300" height="150" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
-              <text x="150" y="75" text-anchor="middle" fill="#666" font-size="14">${bodyType.toUpperCase()}</text>
-            </svg>
-          `);
-        }
-      }
-    } else {
-      // Usar una imagen placeholder para el tipo de vehículo
-      const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
-      vehicleImage = 'data:image/svg+xml;base64,' + btoa(`
-        <svg width="300" height="150" xmlns="http://www.w3.org/2000/svg">
-          <rect width="300" height="150" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
-          <text x="150" y="75" text-anchor="middle" fill="#666" font-size="14">${bodyType.toUpperCase()}</text>
-        </svg>
-      `);
-      console.log('BodyInspection - Usando imagen placeholder para:', bodyType);
-    }
-
-    const html = `
-      <div class="section-title" style="font-size: 18px; margin-bottom: 20px;">🚗 INSPECCIÓN DE CARROCERÍA</div>
-      <div style="margin: 20px 0; background: #f8f9fa; border-radius: 12px; padding: 25px; border: 2px solid #e0e0e0; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-        <div style="text-align: center; margin-bottom: 25px;">
-          <img src="${vehicleImage}" style="width: 500px; height: 250px; border-radius: 8px; border: 2px solid #ddd;" alt="Vehículo" />
-        </div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 15px; margin-top: 20px;">
-          <thead>
-            <tr style="background: linear-gradient(135deg, rgba(255,0,0,0.7), rgba(204,0,0,0.7));">
-              <th style="padding: 15px; border: 2px solid rgba(224,224,224,0.6); text-align: center; color: white; font-weight: bold; font-size: 16px;">Punto</th>
-              <th style="padding: 15px; border: 2px solid rgba(224,224,224,0.6); color: white; font-weight: bold; font-size: 16px;">Descripción</th>
-              <th style="padding: 15px; border: 2px solid rgba(224,224,224,0.6); color: white; font-weight: bold; font-size: 16px;">Observación</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${inspection.bodyInspection.points.map((point: BodyInspectionPoint) => `
-              <tr>
-                <td style="padding: 12px; border: 2px solid rgba(224,224,224,0.6); text-align: center; font-weight: bold; background: rgba(248,249,250,0.5);">
-                  <span style="background: #FF0000; color: white; padding: 6px 10px; border-radius: 50%; font-size: 16px; font-weight: bold;">
-                    ${point.number}
-                  </span>
-                </td>
-                <td style="padding: 12px; border: 2px solid rgba(224,224,224,0.6); background: rgba(255,255,255,0.5); font-size: 15px;">
-                  ${point.label || 'Sin descripción'}
-                </td>
-                <td style="padding: 12px; border: 2px solid rgba(224,224,224,0.6); color: #333; background: rgba(255,255,255,0.5); font-size: 14px;">
-                  ${point.observation || 'Sin observación'}
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
-    
-    console.log('generateBodyInspectionHTML - HTML generado, longitud:', html.length);
-    console.log('generateBodyInspectionHTML - Imagen en HTML:', html.includes(vehicleImage.substring(0, 50)));
-    
-    return html;
-  };
-
-  // Función para generar HTML de inspección de llantas
-  const generateTireInspectionHTML = async (inspection: InspectionForm, compact = false) => {
-    if (!inspection.tireInspection) return '';
+    console.log('generateTireInspectionHTML - Iniciando...');
+    console.log('generateTireInspectionHTML - tireInspection completo:', inspection.tireInspection);
+    console.log('generateTireInspectionHTML - capturedImage:', inspection.tireInspection.capturedImage ? 'Present' : 'Missing');
+    console.log('generateTireInspectionHTML - capturedImage length:', inspection.tireInspection.capturedImage?.length || 0);
+    console.log('generateTireInspectionHTML - capturedImage starts with data:image:', inspection.tireInspection.capturedImage?.startsWith('data:image'));
+    debugImageInfo(inspection.tireInspection.capturedImage || '', 'TireInspection');
 
     let vehicleImage;
-    if (inspection.tireInspection.capturedImage) {
-      // Verificar si la imagen es base64 o una ruta de archivo
-      if (inspection.tireInspection.capturedImage.startsWith('data:image')) {
-        // Ya es base64
-        vehicleImage = inspection.tireInspection.capturedImage;
-        console.log('TireInspection - Imagen ya en base64, longitud:', vehicleImage.length);
-      } else if (inspection.tireInspection.capturedImage.startsWith('file://')) {
-        // Es una ruta de archivo, intentar convertir a base64
-        try {
-          vehicleImage = await imageToBase64(inspection.tireInspection.capturedImage);
-          console.log('TireInspection - Imagen convertida de archivo a base64, longitud:', vehicleImage.length);
-        } catch (error) {
-          console.error('TireInspection - Error convirtiendo imagen de archivo:', error);
-          // Usar placeholder si falla la conversión
-          const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
-          vehicleImage = 'data:image/svg+xml;base64,' + btoa(`
-            <svg width="300" height="180" xmlns="http://www.w3.org/2000/svg">
-              <rect width="300" height="180" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
-              <text x="150" y="90" text-anchor="middle" fill="#666" font-size="14">${bodyType.toUpperCase()}</text>
-            </svg>
-          `);
-        }
-      } else {
-        // Otro formato, intentar convertir
-        try {
-          vehicleImage = await imageToBase64(inspection.tireInspection.capturedImage);
-          console.log('TireInspection - Imagen convertida a base64, longitud:', vehicleImage.length);
-        } catch (error) {
-          console.error('TireInspection - Error convirtiendo imagen:', error);
-          // Usar placeholder si falla la conversión
-          const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
-          vehicleImage = 'data:image/svg+xml;base64,' + btoa(`
-            <svg width="300" height="180" xmlns="http://www.w3.org/2000/svg">
-              <rect width="300" height="180" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
-              <text x="150" y="90" text-anchor="middle" fill="#666" font-size="14">${bodyType.toUpperCase()}</text>
-            </svg>
-          `);
-        }
-      }
+    const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
+    
+    // Usar imagen capturada si está disponible y es válida
+    if (inspection.tireInspection.capturedImage && inspection.tireInspection.capturedImage.startsWith('data:image')) {
+      vehicleImage = inspection.tireInspection.capturedImage;
+      console.log('TireInspection - Usando imagen capturada con mediciones, longitud:', vehicleImage.length);
+      console.log('TireInspection - Imagen capturada preview:', vehicleImage.substring(0, 100));
     } else {
-      // Usar una imagen placeholder para el tipo de vehículo
-      const bodyType = inspection.vehicleInfo.bodyType || 'sedan';
-      vehicleImage = 'data:image/svg+xml;base64,' + btoa(`
-        <svg width="300" height="180" xmlns="http://www.w3.org/2000/svg">
-          <rect width="300" height="180" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
-          <text x="150" y="90" text-anchor="middle" fill="#666" font-size="14">${bodyType.toUpperCase()}</text>
-        </svg>
-      `);
-      console.log('TireInspection - Usando imagen placeholder para:', bodyType);
+      // Usar imagen estática del tipo de vehículo como fallback
+      const getVehicleImage = (type: string) => {
+        return VEHICLE_IMAGES_BASE64[type as keyof typeof VEHICLE_IMAGES_BASE64] || VEHICLE_IMAGES_BASE64.sedan;
+      };
+      vehicleImage = getVehicleImage(bodyType);
+      console.log('TireInspection - Usando imagen estática como fallback para:', bodyType);
+      console.log('TireInspection - Imagen estática preview:', vehicleImage.substring(0, 100));
     }
+
+    console.log('generateTireInspectionHTML - Imagen final a usar:', vehicleImage.substring(0, 100));
 
     return `
       <div class="section-title" style="font-size: 18px; margin-bottom: 20px;">🛞 INSPECCIÓN DE LLANTAS</div>
-      <div style="margin: 20px 0; background: #f8f9fa; border-radius: 12px; padding: 25px; border: 2px solid #e0e0e0; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-        <div style="text-align: center; margin-bottom: 25px;">
-          <img src="${vehicleImage}" style="width: 500px; height: 300px; border-radius: 8px; border: 2px solid #ddd;" alt="Vehículo" />
+      <div style="margin: 15px 0 5px 0; background: #f8f9fa; border-radius: 12px; padding: 20px 20px 8px 20px; border: 2px solid #e0e0e0; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+        <div style="text-align: center; margin-bottom: 10px;">
+          <img src="${vehicleImage}" style="width: 700px; height: 400px; border-radius: 8px; border: 2px solid #ddd; object-fit: contain;" alt="Vehículo con mediciones de llantas" />
         </div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 15px; margin-top: 20px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 15px; margin-top: 15px;">
           <thead>
             <tr style="background: linear-gradient(135deg, rgba(0,102,204,0.7), rgba(0,82,163,0.7));">
               <th style="padding: 15px; border: 2px solid rgba(224,224,224,0.6); text-align: center; color: white; font-weight: bold; font-size: 16px;">Llanta</th>
@@ -590,20 +455,20 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
     
     if (inspection.tireInspection.batteryStatus || inspection.tireInspection.brakeFluidLevel) {
       html += `
-        <div style="margin: 30px 0 20px 0; background: #f8f9fa; border-radius: 12px; padding: 25px; border: 2px solid #e0e0e0; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-          <div class="section-title" style="font-size: 18px; margin-bottom: 20px;">🔋 ESTADO DE BATERÍA Y LÍQUIDO DE FRENOS</div>
-          <div style="display: flex; gap: 20px;">
+        <div style="margin: 15px 0 10px 0; background: #f8f9fa; border-radius: 12px; padding: 15px; border: 2px solid #e0e0e0; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+          <div class="section-title" style="font-size: 16px; margin-bottom: 15px;">🔋 ESTADO DE BATERÍA Y LÍQUIDO DE FRENOS</div>
+          <div style="display: flex; gap: 15px;">
       `;
       
       if (inspection.tireInspection.batteryStatus) {
         html += `
-          <div style="flex: 1; background: white; border-radius: 8px; padding: 20px; border: 2px solid #4CAF50;">
-            <h3 style="margin: 0 0 15px 0; color: #4CAF50; font-size: 16px; font-weight: bold;">🔋 Estado de Batería</h3>
-            <div style="font-size: 16px; margin-bottom: 10px;">
+          <div style="flex: 1; background: white; border-radius: 8px; padding: 15px; border: 2px solid #4CAF50;">
+            <h3 style="margin: 0 0 10px 0; color: #4CAF50; font-size: 14px; font-weight: bold;">🔋 Estado de Batería</h3>
+            <div style="font-size: 14px; margin-bottom: 8px;">
               <strong>Porcentaje:</strong> <span style="color: #4CAF50; font-weight: bold;">${inspection.tireInspection.batteryStatus.percentage}%</span>
             </div>
             ${inspection.tireInspection.batteryStatus.observations ? 
-              `<div style="font-size: 14px; color: #666; margin-top: 10px;">
+              `<div style="font-size: 12px; color: #666; margin-top: 8px;">
                 <strong>Observaciones:</strong><br/>
                 ${inspection.tireInspection.batteryStatus.observations}
               </div>` : ''
@@ -614,13 +479,13 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
       
       if (inspection.tireInspection.brakeFluidLevel) {
         html += `
-          <div style="flex: 1; background: white; border-radius: 8px; padding: 20px; border: 2px solid #FF9800;">
-            <h3 style="margin: 0 0 15px 0; color: #FF9800; font-size: 16px; font-weight: bold;">🛑 Estado de Líquido de Frenos</h3>
-            <div style="font-size: 16px; margin-bottom: 10px;">
+          <div style="flex: 1; background: white; border-radius: 8px; padding: 15px; border: 2px solid #FF9800;">
+            <h3 style="margin: 0 0 10px 0; color: #FF9800; font-size: 14px; font-weight: bold;">🛑 Estado de Líquido de Frenos</h3>
+            <div style="font-size: 14px; margin-bottom: 8px;">
               <strong>Nivel:</strong> <span style="color: #FF9800; font-weight: bold;">${inspection.tireInspection.brakeFluidLevel.level}</span>
             </div>
             ${inspection.tireInspection.brakeFluidLevel.observations ? 
-              `<div style="font-size: 14px; color: #666; margin-top: 10px;">
+              `<div style="font-size: 12px; color: #666; margin-top: 8px;">
                 <strong>Observaciones:</strong><br/>
                 ${inspection.tireInspection.brakeFluidLevel.observations}
               </div>` : ''
@@ -639,7 +504,7 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
   };
 
   // Función para generar HTML de inspección fotográfica
-  const generatePhotoInspectionHTML = (inspection: InspectionForm) => {
+  const generatePhotoInspectionHTML = async (inspection: InspectionForm) => {
     if (!inspection.inspectionPhotos || inspection.inspectionPhotos.length === 0) {
       return '';
     }
@@ -651,19 +516,44 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
     }
 
     let html = '';
-    photoPairs.forEach((pair, index) => {
+    for (let pairIndex = 0; pairIndex < photoPairs.length; pairIndex++) {
+      const pair = photoPairs[pairIndex];
       html += `
         <div class="container page-break" style="position: relative;">
           ${watermarkBase64 ? `<img src="${watermarkBase64}" class="watermark" alt="Marca de Agua" />` : ''}
-          <div class="section-title">📸 INSPECCIÓN FOTOGRÁFICA - Página ${index + 1}</div>
+          <div class="section-title">📸 INSPECCIÓN FOTOGRÁFICA - Página ${pairIndex + 1}</div>
           <div style="display: flex; gap: 20px; margin-top: 20px;">
       `;
       
-      pair.forEach((photo) => {
+      for (let photoIndex = 0; photoIndex < pair.length; photoIndex++) {
+        const photo = pair[photoIndex];
+        let photoSrc = photo.uri;
+        
+        // Verificar si la foto necesita conversión a base64
+        if (photo.uri && !photo.uri.startsWith('data:image')) {
+          try {
+            console.log('PhotoInspection - Convirtiendo foto a base64:', photo.uri);
+            debugImageInfo(photo.uri, 'PhotoInspection');
+            photoSrc = await safeImageToBase64(photo.uri);
+            console.log('PhotoInspection - Foto convertida exitosamente');
+          } catch (error) {
+            console.error('PhotoInspection - Error convirtiendo foto:', error);
+            // Usar placeholder si falla la conversión
+            photoSrc = 'data:image/svg+xml;base64,' + btoa(`
+              <svg width="300" height="200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
+                <text x="150" y="100" text-anchor="middle" fill="#666" font-size="14">Error al cargar foto</text>
+              </svg>
+            `);
+          }
+        } else if (photo.uri) {
+          debugImageInfo(photo.uri, 'PhotoInspection');
+        }
+        
         html += `
           <div style="flex: 1; background: #f8f9fa; border-radius: 12px; padding: 15px; border: 1px solid #e0e0e0;">
             <div style="text-align: center; margin-bottom: 15px;">
-              <img src="${photo.uri}" 
+              <img src="${photoSrc}" 
                    style="width: 100%; max-width: 300px; height: 200px; border-radius: 8px; object-fit: cover;" 
                    alt="Foto ${photo.label}" />
             </div>
@@ -676,7 +566,7 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
             </div>
           </div>
         `;
-      });
+      }
 
       // Si solo hay una foto en el par, agregar espacio vacío
       if (pair.length === 1) {
@@ -687,7 +577,7 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
           </div>
         </div>
       `;
-    });
+    }
 
     return html;
   };
@@ -867,7 +757,7 @@ const generateHTMLContent = async (inspection: InspectionForm, settings: AppSett
   ` : ''}
 
   <!-- HOJA 5+: Inspección Fotográfica (máximo 2 fotos por hoja) -->
-  ${generatePhotoInspectionHTML(inspection)}
+  ${await generatePhotoInspectionHTML(inspection)}
 
   <div class="footer" style="position: relative;">
     ${watermarkBase64 ? `<img src="${watermarkBase64}" class="watermark" alt="Marca de Agua" />` : ''}

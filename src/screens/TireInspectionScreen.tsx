@@ -16,10 +16,12 @@ import { useNavigation } from '@react-navigation/native';
 import { useAppStore } from '../stores/appStore';
 import ViewShot from 'react-native-view-shot';
 import { TireInspection } from '../types';
+import { useTabletConfig } from '../utils/tabletConfig';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_WIDTH = SCREEN_WIDTH - 40;
 const IMAGE_HEIGHT = IMAGE_WIDTH * 0.6;
+const SCALE_FACTOR = 3;
 
 // 1. Modificar TireMeasurement para solo guardar valor numérico y nombre
 interface TireMeasurement {
@@ -38,6 +40,7 @@ interface TireInspectionScreenProps {
 const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) => {
   const navigation = useNavigation();
   const { currentInspection, updateTireInspection } = useAppStore();
+  const { images: { inspectionImageSize } } = useTabletConfig();
   const vehicleType = route?.params?.vehicleType || 'sedan';
   const [measurements, setMeasurements] = useState<TireMeasurement[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -50,12 +53,19 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
   // Estado para el modal de opciones (editar/eliminar)
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
   const [selectedTireForOptions, setSelectedTireForOptions] = useState<{pos: typeof tirePositions[0], measurement: TireMeasurement} | null>(null);
-  
   // Estados para batería y líquido de frenos
   const [batteryPercentage, setBatteryPercentage] = useState<number>(0);
   const [batteryObservations, setBatteryObservations] = useState<string>('');
   const [brakeFluidLevel, setBrakeFluidLevel] = useState<number>(0);
   const [brakeFluidObservations, setBrakeFluidObservations] = useState<string>('');
+  
+  // 1. Definir offsets para cada llanta (dirección de línea y etiqueta)
+  const tireLabelOffsets = {
+    'front-left':  { dx: -60, dy: -40 }, // izquierda-arriba
+    'front-right': { dx: 60, dy: -40 },  // derecha-arriba
+    'rear-left':   { dx: -60, dy: 40 },  // izquierda-abajo
+    'rear-right':  { dx: 60, dy: 40 },   // derecha-abajo
+  };
 
   // 2. Definir posiciones y nombres exactos
   const tirePositions: Array<{id: string, x: number, y: number, title: string}> = [
@@ -64,14 +74,6 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
     { id: 'rear-left', x: 0.22, y: 0.68, title: 'Llanta TIzquierda' },
     { id: 'rear-right', x: 0.78, y: 0.68, title: 'Llanta TDerecha' },
   ];
-
-  // 1. Definir offsets para cada llanta (dirección de línea y etiqueta)
-  const tireLabelOffsets = {
-    'front-left':  { dx: -60, dy: -40 }, // izquierda-arriba
-    'front-right': { dx: 60, dy: -40 },  // derecha-arriba
-    'rear-left':   { dx: -60, dy: 40 },  // izquierda-abajo
-    'rear-right':  { dx: 60, dy: 40 },   // derecha-abajo
-  };
 
   // Sincronizar mediciones cuando cambie la inspección actual
   useEffect(() => {
@@ -221,45 +223,16 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
           console.log('Resultado de ViewShot (llantas):', result);
           console.log('Tipo de resultado (llantas):', typeof result);
           
-          // Convertir siempre a base64 para evitar problemas con archivos temporales
+          // ViewShot ya devuelve base64 cuando result: 'base64' está configurado
           if (result && typeof result === 'string') {
             if (result.startsWith('data:image')) {
-              // Ya es base64
+              // Ya es base64 con el formato correcto
               capturedImage = result;
-              console.log('Imagen de llantas ya en base64, longitud:', capturedImage.length);
-            } else if (result.startsWith('file://')) {
-              // Es una ruta de archivo, convertir a base64
-              try {
-                const RNFS = require('react-native-fs');
-                const base64 = await RNFS.readFile(result, 'base64');
-                capturedImage = `data:image/png;base64,${base64}`;
-                console.log('Imagen de llantas convertida a base64, longitud:', capturedImage.length);
-              } catch (convertError) {
-                console.error('Error convirtiendo imagen de llantas a base64:', convertError);
-                // Usar placeholder si falla la conversión
-                capturedImage = `data:image/svg+xml;base64,${btoa(`
-                  <svg width="300" height="180" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="300" height="180" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
-                    <text x="150" y="90" text-anchor="middle" fill="#666" font-size="14">ERROR</text>
-                  </svg>
-                `)}`;
-              }
+              console.log('Imagen de llantas capturada en base64, longitud:', capturedImage.length);
             } else {
-              // Otro formato, intentar convertir
-              try {
-                const RNFS = require('react-native-fs');
-                const base64 = await RNFS.readFile(result, 'base64');
-                capturedImage = `data:image/png;base64,${base64}`;
-                console.log('Imagen de llantas convertida a base64, longitud:', capturedImage.length);
-              } catch (convertError) {
-                console.error('Error convirtiendo imagen de llantas a base64:', convertError);
-                capturedImage = `data:image/svg+xml;base64,${btoa(`
-                  <svg width="300" height="180" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="300" height="180" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
-                    <text x="150" y="90" text-anchor="middle" fill="#666" font-size="14">ERROR</text>
-                  </svg>
-                `)}`;
-              }
+              // Si no tiene el prefijo data:image, agregarlo
+              capturedImage = `data:image/png;base64,${result}`;
+              console.log('Imagen de llantas convertida a base64, longitud:', capturedImage.length);
             }
           }
           
@@ -396,13 +369,21 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
             ref={viewShotRef}
             options={{
               format: 'png',
-              quality: 0.9,
-              width: IMAGE_WIDTH,
-              height: IMAGE_HEIGHT,
+              quality: 1,
+              width: 900, // 2x el ancho visual del PDF
+              height: 700, // 2x el alto visual del PDF
               result: 'base64'
             }}
           >
-            <Pressable onPress={handleImagePress} style={{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT }}>
+            <Pressable
+              onPress={handleImagePress}
+              style={{
+                width: IMAGE_WIDTH,
+                height: IMAGE_HEIGHT,
+                justifyContent: 'flex-end',
+                alignItems: 'center',
+              }}
+            >
               <Image
                 source={require('../../assets/vehicles/vehicle-skeleton.png')}
                 style={{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT, borderRadius: 12 }}
@@ -451,23 +432,23 @@ const TireInspectionScreen: React.FC<TireInspectionScreenProps> = ({ route }) =>
                     />
                     {/* Etiqueta con long press para editar/eliminar */}
                     <Pressable
-                      style={{ 
-                        position: 'absolute', 
-                        left: labelX - 8, 
-                        top: labelY - 8, 
-                        backgroundColor: color, 
-                        borderRadius: 8, 
-                        padding: 4, 
-                        minWidth: 50, 
-                        minHeight: 30,
+                      style={{
+                        position: 'absolute',
+                        left: labelX - 8,
+                        top: labelY - 8,
+                        backgroundColor: color,
+                        borderRadius: 7.2,
+                        padding: 3.6,
+                        minWidth: 45,
+                        minHeight: 27,
                         zIndex: 4,
                         alignItems: 'center',
                         justifyContent: 'center'
                       }}
                       onLongPress={() => handleShowOptions({ id: m.id, x: m.x, y: m.y, title: m.title }, m)}
                     >
-                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 8 }}>{m.title}</Text>
-                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 10, textAlign: 'center' }}>{m.value.toFixed(2)}</Text>
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 7.2 }}>{m.title}</Text>
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 9, textAlign: 'center' }}>{m.value.toFixed(2)}</Text>
                     </Pressable>
                   </React.Fragment>
                 );

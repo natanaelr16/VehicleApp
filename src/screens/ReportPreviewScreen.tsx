@@ -705,13 +705,21 @@ const ReportPreviewScreen: React.FC = () => {
                         {measurement.value.toFixed(2)} mm
                       </Text>
                       <View style={{
+                        width: 44,
+                        height: 18,
+                        paddingHorizontal: 0,
+                        borderRadius: 9,
                         backgroundColor: getStatusColor(measurement.value),
-                        paddingHorizontal: 8,
-                        paddingVertical: 2,
-                        borderRadius: 12,
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         marginLeft: 8,
                       }}>
-                        <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>
+                        <Text style={{
+                          color: 'white',
+                          fontSize: 9,
+                          fontWeight: 'bold',
+                          textAlign: 'center',
+                        }}>
                           {getStatusByValue(measurement.value)}
                         </Text>
                       </View>
