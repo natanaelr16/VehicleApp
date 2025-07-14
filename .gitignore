@@ -73,3 +73,9 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Large files
+gradle-7.5.1-bin.zip
+*.zip
+*.tar.gz
+*.rar
