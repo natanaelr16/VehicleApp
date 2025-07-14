@@ -8,6 +8,7 @@ import {
   Alert,
   Image,
   Share,
+  Animated,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAppStore } from '../stores/appStore';
@@ -22,6 +23,7 @@ const ReportPreviewScreen: React.FC = () => {
   const navigation = useNavigation();
   const { currentInspection, settings, saveInspection } = useAppStore();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [customAlert, setCustomAlert] = useState<{
     visible: boolean;
     title: string;
@@ -73,10 +75,23 @@ const ReportPreviewScreen: React.FC = () => {
           onPress: async () => {
             setCustomAlert({ visible: false, title: '', message: '', buttons: [] });
             setIsGenerating(true);
+            setProgress(0);
+            
+            // Simular progreso
+            const progressInterval = setInterval(() => {
+              setProgress(prev => {
+                if (prev < 90) return prev + Math.random() * 10;
+                return prev;
+              });
+            }, 200);
+            
             try {
               const filePath = await generateInspectionPDF(currentInspection, settings);
               
               if (filePath) {
+                clearInterval(progressInterval);
+                setProgress(100);
+                
                 const fileName = filePath.split('/').pop() || 'reporte.pdf';
                 console.log('Archivo generado en:', filePath);
                 console.log('Nombre del archivo:', fileName);
@@ -181,6 +196,8 @@ const ReportPreviewScreen: React.FC = () => {
               });
             } finally {
               setIsGenerating(false);
+              clearInterval(progressInterval);
+              setProgress(0);
             }
           },
           style: 'primary',
@@ -948,6 +965,18 @@ const ReportPreviewScreen: React.FC = () => {
           <Text style={styles.generateButtonText}>
             {isGenerating ? 'Generando...' : 'Generar PDF'}
           </Text>
+          {isGenerating && (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBar}>
+                <Animated.View 
+                  style={[
+                    styles.progressFill,
+                    { width: `${progress}%` }
+                  ]} 
+                />
+              </View>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -1208,6 +1237,23 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  progressContainer: {
+    marginTop: 8,
+    width: '100%',
+    alignItems: 'center',
+  },
+  progressBar: {
+    width: '100%',
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#4CAF50',
+    borderRadius: 2,
   },
 
   errorText: {
