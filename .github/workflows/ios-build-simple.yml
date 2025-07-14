@@ -1,0 +1,84 @@
+name: iOS Build (Simple)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: # Permite ejecutar manualmente
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.0'
+        bundler-cache: true
+        
+    - name: Install iOS dependencies
+      run: |
+        cd ios
+        pod install
+        
+    - name: Build iOS app (Debug)
+      run: |
+        cd ios
+        xcodebuild -workspace VehicleInspectionApp.xcworkspace \
+                   -scheme VehicleInspectionApp \
+                   -configuration Debug \
+                   -destination generic/platform=iOS \
+                   -archivePath VehicleInspectionApp.xcarchive \
+                   archive \
+                   CODE_SIGN_IDENTITY="" \
+                   CODE_SIGNING_REQUIRED=NO \
+                   CODE_SIGNING_ALLOWED=NO
+                   
+    - name: Create IPA (Development)
+      run: |
+        cd ios
+        xcodebuild -exportArchive \
+                   -archivePath VehicleInspectionApp.xcarchive \
+                   -exportPath ./build \
+                   -exportOptionsPlist exportOptions.plist \
+                   CODE_SIGN_IDENTITY="" \
+                   CODE_SIGNING_REQUIRED=NO \
+                   CODE_SIGNING_ALLOWED=NO
+                   
+    - name: Upload IPA artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: VehicleInspectionApp-iOS-Debug
+        path: ios/build/VehicleInspectionApp.ipa
+        retention-days: 30
+        
+    - name: Create Release
+      if: github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ios/build/VehicleInspectionApp.ipa
+        tag_name: v${{ github.run_number }}
+        name: Release v${{ github.run_number }}
+        body: |
+          iOS build for Vehicle Inspection App (Debug)
+          
+          - Build number: ${{ github.run_number }}
+          - Commit: ${{ github.sha }}
+          - Branch: ${{ github.ref_name }}
+          - Note: This is a debug build without code signing
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
