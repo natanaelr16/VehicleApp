@@ -1,14 +1,14 @@
-name: iOS Build
+name: iOS Build and TestFlight
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch: # Permite ejecutar manualmente
+  workflow_dispatch:
 
 jobs:
-  build-ios:
+  build:
     runs-on: macos-latest
     
     steps:
@@ -22,35 +22,14 @@ jobs:
         cache: 'npm'
         
     - name: Install dependencies
-      run: npm ci
-      
-    - name: Setup Ruby
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: '3.0'
-        bundler-cache: true
+      run: |
+        npm ci
         
     - name: Install iOS dependencies
       run: |
         cd ios
         pod install
-      env:
-        FLUTTER_ROOT: ${{ github.workspace }}
-        
-    - name: Setup iOS certificates
-      uses: apple-actions/import-codesigning-certs@v1
-      with:
-        p12-file-base64: ${{ secrets.IOS_P12_BASE64 }}
-        p12-password: ${{ secrets.IOS_P12_PASSWORD }}
-        
-    - name: Setup provisioning profile
-      uses: apple-actions/download-provisioning-profiles@v1
-      with:
-        bundle-id: 'com.vehicleinspectionapp'
-        profile-type: 'IOS_APP_DEVELOPMENT'
-        issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
-        api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
-        api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        cd ..
         
     - name: Build iOS app
       run: |
@@ -59,36 +38,41 @@ jobs:
                    -scheme VehicleInspectionApp \
                    -configuration Release \
                    -destination generic/platform=iOS \
-                   -archivePath VehicleInspectionApp.xcarchive \
-                   archive
+                   -archivePath build/VehicleInspectionApp.xcarchive \
+                   clean archive
                    
-    - name: Create IPA
+    - name: Export IPA
       run: |
         cd ios
         xcodebuild -exportArchive \
-                   -archivePath VehicleInspectionApp.xcarchive \
-                   -exportPath ./build \
+                   -archivePath build/VehicleInspectionApp.xcarchive \
+                   -exportPath build/ \
                    -exportOptionsPlist exportOptions.plist
                    
     - name: Upload IPA artifact
       uses: actions/upload-artifact@v4
       with:
-        name: VehicleInspectionApp-iOS
+        name: VehicleInspectionApp-ipa
         path: ios/build/VehicleInspectionApp.ipa
-        retention-days: 30
         
-    - name: Create Release
-      if: github.ref == 'refs/heads/main'
-      uses: softprops/action-gh-release@v1
-      with:
-        files: ios/build/VehicleInspectionApp.ipa
-        tag_name: v${{ github.run_number }}
-        name: Release v${{ github.run_number }}
-        body: |
-          iOS build for Vehicle Inspection App
-          
-          - Build number: ${{ github.run_number }}
-          - Commit: ${{ github.sha }}
-          - Branch: ${{ github.ref_name }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+    - name: Upload to TestFlight (Optional)
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      run: |
+        echo "Para subir a TestFlight, necesitas:"
+        echo "1. Configurar APP_STORE_CONNECT_API_KEY en los secrets del repositorio"
+        echo "2. Configurar APP_STORE_CONNECT_ISSUER_ID en los secrets del repositorio"
+        echo "3. Configurar APP_STORE_CONNECT_KEY_ID en los secrets del repositorio"
+        echo ""
+        echo "O subir manualmente el IPA desde Xcode Organizer"
+        
+    # Comentario: Para habilitar la subida automática a TestFlight, descomenta las siguientes líneas
+    # y configura los secrets en tu repositorio de GitHub
+    
+    # - name: Upload to TestFlight
+    #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    #   uses: apple-actions/upload-testflight@v1
+    #   with:
+    #     app-path: ios/build/VehicleInspectionApp.ipa
+    #     api-key: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+    #     api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+    #     api-issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} 
