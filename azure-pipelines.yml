@@ -97,4 +97,4 @@ stages:
       inputs:
         pathToPublish: 'ios/build/'
         artifactName: 'iOS-IPA'
-      displayName: 'Publish iOS IPA' 
+      displayName: 'Publish iOS IPA'
