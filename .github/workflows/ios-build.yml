@@ -1,3 +1,5 @@
+# Workflow temporalmente deshabilitado por problemas de facturación
+# Para habilitar: cambiar 'on' por 'on:' y descomentar las líneas
 name: iOS Build and TestFlight
 
 on:
