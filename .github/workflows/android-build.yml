@@ -1,0 +1,66 @@
+name: Android Build
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Ubuntu es gratis en GitHub Actions
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+        
+    - name: Install dependencies
+      run: |
+        npm ci
+        
+    - name: Cache Gradle packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+          
+    - name: Build Android APK
+      run: |
+        cd android
+        ./gradlew assembleRelease
+        cd ..
+        
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: VehicleInspectionApp-apk
+        path: android/app/build/outputs/apk/release/app-release.apk
+        
+    - name: Build Android AAB
+      run: |
+        cd android
+        ./gradlew bundleRelease
+        cd ..
+        
+    - name: Upload AAB artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: VehicleInspectionApp-aab
+        path: android/app/build/outputs/bundle/release/app-release.aab 
