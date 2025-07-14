@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  vehicle-app-ios:
+    build:
+      context: .
+      dockerfile: Dockerfile.ios
+    container_name: vehicle-app-ios
+    ports:
+      - "8081:8081"  # Metro bundler
+      - "19000:19000"  # Expo (si se usa)
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - REACT_NATIVE_PACKAGER_HOSTNAME=localhost
+    stdin_open: true
+    tty: true
+    networks:
+      - vehicle-app-network
+
+networks:
+  vehicle-app-network:
+    driver: bridge 

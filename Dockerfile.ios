@@ -1,0 +1,33 @@
+# Dockerfile simplificado para React Native iOS
+FROM node:18-alpine
+
+# Instalar dependencias básicas
+RUN apk add --no-cache \
+    git \
+    curl \
+    wget \
+    python3 \
+    make \
+    g++ \
+    bash
+
+# Instalar React Native CLI globalmente
+RUN npm install -g @react-native-community/cli
+
+# Crear directorio de trabajo
+WORKDIR /app
+
+# Copiar package.json y package-lock.json
+COPY package*.json ./
+
+# Instalar dependencias
+RUN npm install
+
+# Copiar el resto del código
+COPY . .
+
+# Exponer puertos
+EXPOSE 8081 19000
+
+# Comando por defecto
+CMD ["npm", "start"] 

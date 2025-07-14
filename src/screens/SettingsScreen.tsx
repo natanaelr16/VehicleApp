@@ -225,8 +225,8 @@ const SettingsScreen: React.FC = () => {
             </View>
             <Text style={styles.helpText}>
               📱 Este logo aparecerá en la página principal de la app{'\n'}
-              📄 También se incluirá en los reportes PDF{'\n'}
               📏 Tamaño recomendado: 400x300px máximo{'\n'}
+              ⚫ Se recomienda usar imágenes con fondo negro{'\n'}
               💡 Toca "Seleccionar Logo" para elegir una imagen de tu galería
             </Text>
             
@@ -282,7 +282,7 @@ const SettingsScreen: React.FC = () => {
 
         {/* Bloque final: logo, leyenda, versión, marca y botón guardar */}
         <View style={{ alignItems: 'center', marginTop: 48, marginBottom: 32 }}>
-          <Image source={require('../../assets/innovare_logo.png')} style={{ width: 200, height: 100, marginBottom: 10, resizeMode: 'contain' }} />
+          <Image source={require('../../assets/innovare_logo.png')} style={{ width: 300, height: 150, marginBottom: 10, resizeMode: 'contain' }} />
           <Text style={{ color: '#bbb', fontSize: 14, marginBottom: 2, marginTop: 2, textAlign: 'center' }}>
             App de inspección vehicular profesional
           </Text>
@@ -392,18 +392,7 @@ const styles = StyleSheet.create({
   logoButtonDisabled: {
     opacity: 0.6,
   },
-  testButton: {
-    backgroundColor: '#007AFF',
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  testButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+
   logoPreview: {
     width: 120,
     height: 80,

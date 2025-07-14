@@ -12,7 +12,10 @@ import DiagnosisSuggestionsScreen from '../screens/DiagnosisSuggestionsScreen';
 
 export type RootStackParamList = {
   Home: undefined;
-  InspectionForm: undefined;
+  InspectionForm: {
+    autoFillData?: any;
+    autoFillRuntData?: any;
+  };
   Settings: undefined;
   ReportPreview: undefined;
   BodyInspection: undefined;

@@ -1,0 +1,51 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+README.md
+.env
+.nyc_output
+coverage
+.nyc_output
+.coverage
+.cache
+.parcel-cache
+.DS_Store
+*.log
+*.tgz
+*.tar.gz
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Android
+android/app/build
+android/build
+android/.gradle
+android/local.properties
+android/app/release
+android/app/debug
+
+# iOS
+ios/build
+ios/Pods
+ios/Podfile.lock
+ios/*.xcworkspace/xcuserdata
+ios/*.xcodeproj/xcuserdata
+ios/*.xcodeproj/project.xcworkspace/xcuserdata
+
+# Temporary files
+tmp
+temp
+.tmp
+.temp
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Scripts
+*.sh 

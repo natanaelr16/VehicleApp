@@ -10,6 +10,7 @@ export interface VehicleInfo {
   ownerName: string;
   ownerPhone: string;
   bodyType?: string;
+  vehiclePhoto?: string;
 }
 
 export interface VehicleHistory {

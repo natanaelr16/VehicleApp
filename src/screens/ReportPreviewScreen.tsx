@@ -81,6 +81,8 @@ const ReportPreviewScreen: React.FC = () => {
                 console.log('Archivo generado en:', filePath);
                 console.log('Nombre del archivo:', fileName);
                 
+
+                
                 // Verificar si el archivo realmente existe
                 const fileExists = await RNFS.exists(filePath);
                 console.log('¿El archivo existe?', fileExists);
@@ -112,16 +114,17 @@ const ReportPreviewScreen: React.FC = () => {
                       onPress: async () => {
                         setCustomAlert({ visible: false, title: '', message: '', buttons: [] });
                         try {
-                          await Share.share({
-                            url: `file://${filePath}`,
-                            title: 'MTinspector - Reporte de Inspección',
-                            message: `Reporte de inspección: ${currentInspection.vehicleInfo.plate || 'vehículo'} - ${new Date().toLocaleDateString('es-CO')}`
-                          });
+                          const success = await shareFileWithFallback(filePath);
+                          if (!success) {
+                            console.log('Compartir cancelado por el usuario');
+                          }
                         } catch (error) {
+                          console.error('Error compartiendo archivo:', error);
+                          const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
                           setCustomAlert({
                             visible: true,
-                            title: 'Error',
-                            message: 'No se pudo compartir el archivo',
+                            title: 'Error al Compartir',
+                            message: `No se pudo compartir el archivo PDF.\n\nError: ${errorMessage}\n\nRuta: ${filePath}\n\nAsegúrate de que:\n• El archivo existe\n• Tienes permisos de almacenamiento\n• La app de destino soporta archivos PDF`,
                             buttons: [
                               {
                                 text: 'Entendido',
@@ -223,6 +226,60 @@ const ReportPreviewScreen: React.FC = () => {
       day: 'numeric',
     });
   };
+
+  const shareFileWithFallback = async (filePath: string) => {
+    try {
+      // Verificar que el archivo existe
+      const fileExists = await RNFS.exists(filePath);
+      if (!fileExists) {
+        throw new Error('El archivo PDF no existe en la ruta especificada');
+      }
+
+      // Obtener información del archivo
+      const fileStats = await RNFS.stat(filePath);
+      console.log('Información del archivo a compartir:', {
+        path: filePath,
+        size: fileStats.size,
+        exists: fileExists,
+        platform: Platform.OS
+      });
+
+      // Intentar compartir con diferentes formatos de URL según la plataforma
+      let shareUrl = filePath;
+      if (Platform.OS === 'android') {
+        // En Android, usar file:// protocol
+        shareUrl = `file://${filePath}`;
+      } else if (Platform.OS === 'ios') {
+        // En iOS, usar la ruta directa
+        shareUrl = filePath;
+      }
+
+      console.log('Intentando compartir con URL:', shareUrl);
+
+      const shareResult = await Share.share({
+        url: shareUrl,
+        title: 'MTinspector - Reporte de Inspección',
+        message: `Reporte de inspección: ${currentInspection.vehicleInfo.plate || 'vehículo'} - ${new Date().toLocaleDateString('es-CO')}`,
+      });
+
+      console.log('Resultado del compartir:', shareResult);
+      
+      if (shareResult.action === Share.sharedAction) {
+        console.log('✅ Archivo compartido exitosamente');
+        return true;
+      } else if (shareResult.action === Share.dismissedAction) {
+        console.log('❌ Compartir cancelado por el usuario');
+        return false;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('❌ Error en shareFileWithFallback:', error);
+      throw error;
+    }
+  };
+
+
 
   // Definir el listado fijo agrupado para mostrar en el PDF
   const inspectionGroups = [
@@ -350,6 +407,25 @@ const ReportPreviewScreen: React.FC = () => {
                  currentInspection.vehicleInfo.bodyType === 'pickup' ? 'Pickup' : 'N/A'}
               </Text>
             </View>
+          </View>
+        </View>
+
+        {/* Foto del Vehículo - Tarjeta Individual */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📸 FOTO DEL VEHÍCULO</Text>
+          <View style={styles.vehiclePhotoCard}>
+            {currentInspection.vehicleInfo.vehiclePhoto ? (
+              <Image 
+                source={{ uri: currentInspection.vehicleInfo.vehiclePhoto }} 
+                style={styles.vehiclePhoto}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.noPhotoCard}>
+                <Text style={styles.noPhotoText}>📷</Text>
+                <Text style={styles.noPhotoLabel}>NO PHOTO</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -873,10 +949,6 @@ const ReportPreviewScreen: React.FC = () => {
             {isGenerating ? 'Generando...' : 'Generar PDF'}
           </Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.shareButton}>
-          <Text style={styles.shareButtonText}>Compartir</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Diálogo personalizado */}
@@ -1127,6 +1199,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
+    marginHorizontal: 0,
   },
   generateButtonDisabled: {
     backgroundColor: '#6c757d',
@@ -1136,23 +1209,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  shareButton: {
-    flex: 1,
-    backgroundColor: '#FF0000',
-    padding: 18,
-    borderRadius: 12,
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  shareButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+
   errorText: {
     fontSize: 18,
     color: '#6c757d',
@@ -1290,6 +1347,89 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  vehicleInfoContainer: {
+    flexDirection: 'row',
+    gap: 20,
+    marginBottom: 15,
+  },
+  vehicleDataContainer: {
+    flex: 1,
+  },
+  vehiclePhotoContainer: {
+    width: 250,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  vehiclePhoto: {
+    width: 300,
+    height: 200,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    backgroundColor: 'white',
+  },
+  vehiclePhotoLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  noPhotoCard: {
+    width: 300,
+    height: 200,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  noPhotoText: {
+    fontSize: 48,
+    color: '#ccc',
+    marginBottom: 8,
+  },
+  noPhotoLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#666',
+    textAlign: 'center',
+  },
+  vehiclePhotoCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   });
   

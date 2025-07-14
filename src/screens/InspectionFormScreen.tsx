@@ -9,7 +9,9 @@ import {
   Alert,
   Modal,
   Animated,
+  Image,
 } from 'react-native';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '../components/AppNavigator';
@@ -46,6 +48,8 @@ const InspectionFormScreen: React.FC = () => {
   const [runtAnim] = useState(new Animated.Value(0));
   const [runtTab, setRuntTab] = useState<'basic' | 'taxes' | 'documents'>('basic');
   const [showRuntMenu, setShowRuntMenu] = useState(false);
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+
 
   // Scroll automático al nuevo item agregado (que ahora está al inicio)
   useEffect(() => {
@@ -175,6 +179,42 @@ const InspectionFormScreen: React.FC = () => {
     }
   };
 
+  const handleVehiclePhoto = () => {
+    setShowPhotoOptions(true);
+  };
+
+  const takePhoto = () => {
+    setShowPhotoOptions(false);
+    launchCamera({
+      mediaType: 'photo',
+      quality: 0.8,
+      includeBase64: true,
+    }, (response) => {
+      if (response.assets && response.assets[0]) {
+        const asset = response.assets[0];
+        if (asset.uri) {
+          updateVehicleInfo({ vehiclePhoto: asset.uri });
+        }
+      }
+    });
+  };
+
+  const selectFromGallery = () => {
+    setShowPhotoOptions(false);
+    launchImageLibrary({
+      mediaType: 'photo',
+      quality: 0.8,
+      includeBase64: true,
+    }, (response) => {
+      if (response.assets && response.assets[0]) {
+        const asset = response.assets[0];
+        if (asset.uri) {
+          updateVehicleInfo({ vehiclePhoto: asset.uri });
+        }
+      }
+    });
+  };
+
   // Definir el listado fijo agrupado
   const inspectionGroups = [
     {
@@ -297,7 +337,25 @@ const InspectionFormScreen: React.FC = () => {
         {activeTab === 'vehicle' ? (
           /* Tab de información del vehículo */
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📋 Información del Vehículo</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>📋 Información del Vehículo</Text>
+              <TouchableOpacity onPress={handleVehiclePhoto} style={styles.photoButton}>
+                <Text style={styles.photoButtonText}>📷</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Foto del vehículo */}
+            {currentInspection.vehicleInfo.vehiclePhoto && (
+              <View style={styles.vehiclePhotoContainer}>
+                <Image 
+                  source={{ uri: currentInspection.vehicleInfo.vehiclePhoto }} 
+                  style={styles.vehiclePhoto}
+                  resizeMode="cover"
+                />
+              </View>
+            )}
+
+
 
             {/* Campos de fecha y hora de ingreso */}
             <View style={styles.inputGroup}>
@@ -652,6 +710,34 @@ const InspectionFormScreen: React.FC = () => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Modal de opciones de foto */}
+      <Modal
+        visible={showPhotoOptions}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPhotoOptions(false)}
+      >
+        <View style={styles.photoOptionsModal}>
+          <View style={styles.photoOptionsContent}>
+            <Text style={styles.modalTitle}>Agregar Foto del Vehículo</Text>
+            <TouchableOpacity style={styles.vehiclePhotoOption} onPress={takePhoto}>
+              <Text style={styles.vehiclePhotoOptionText}>📷 Tomar Foto</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.vehiclePhotoOption} onPress={selectFromGallery}>
+              <Text style={styles.vehiclePhotoOptionText}>🖼️ Seleccionar de Galería</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.vehiclePhotoOption, { borderBottomWidth: 0 }]} 
+              onPress={() => setShowPhotoOptions(false)}
+            >
+              <Text style={styles.vehiclePhotoOptionText}>❌ Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+
 
       {/* Footer moderno con botones */}
       <View style={styles.footer}>
@@ -1017,6 +1103,64 @@ const styles = StyleSheet.create({
     color: '#2c3e50',
     textAlign: 'center',
   },
+  photoButton: {
+    backgroundColor: '#FF0000',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  photoButtonText: {
+    fontSize: 20,
+    color: 'white',
+  },
+  vehiclePhotoContainer: {
+    alignItems: 'center',
+    marginVertical: 15,
+  },
+  vehiclePhoto: {
+    width: 200,
+    height: 120,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+  },
+  photoOptionsModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoOptionsContent: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    width: '80%',
+    maxWidth: 300,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  vehiclePhotoOption: {
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e8e8e8',
+  },
+  vehiclePhotoOptionText: {
+    fontSize: 16,
+    color: '#2c3e50',
+    textAlign: 'center',
+  },
+
 
 });
 
