@@ -1,0 +1,100 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  NODE_VERSION: '18'
+  JAVA_VERSION: '17'
+
+stages:
+- stage: Build
+  displayName: 'Build React Native App'
+  jobs:
+  - job: BuildAndroid
+    displayName: 'Build Android'
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: $(NODE_VERSION)
+      displayName: 'Install Node.js'
+      
+    - script: |
+        npm ci
+      displayName: 'Install dependencies'
+      
+    - task: JavaToolInstaller@0
+      inputs:
+        versionSpec: $(JAVA_VERSION)
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
+      displayName: 'Install Java'
+      
+    - script: |
+        cd android
+        ./gradlew assembleRelease
+        cd ..
+      displayName: 'Build Android APK'
+      
+    - script: |
+        cd android
+        ./gradlew bundleRelease
+        cd ..
+      displayName: 'Build Android AAB'
+      
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathToPublish: 'android/app/build/outputs/apk/release/'
+        artifactName: 'Android-APK'
+      displayName: 'Publish Android APK'
+      
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathToPublish: 'android/app/build/outputs/bundle/release/'
+        artifactName: 'Android-AAB'
+      displayName: 'Publish Android AAB'
+
+  - job: BuildiOS
+    displayName: 'Build iOS'
+    pool:
+      vmImage: 'macOS-latest'
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: $(NODE_VERSION)
+      displayName: 'Install Node.js'
+      
+    - script: |
+        npm ci
+      displayName: 'Install dependencies'
+      
+    - script: |
+        cd ios
+        pod install
+        cd ..
+      displayName: 'Install iOS dependencies'
+      
+    - script: |
+        cd ios
+        xcodebuild -workspace VehicleInspectionApp.xcworkspace \
+                   -scheme VehicleInspectionApp \
+                   -configuration Release \
+                   -destination generic/platform=iOS \
+                   -archivePath build/VehicleInspectionApp.xcarchive \
+                   clean archive
+      displayName: 'Build iOS Archive'
+      
+    - script: |
+        cd ios
+        xcodebuild -exportArchive \
+                   -archivePath build/VehicleInspectionApp.xcarchive \
+                   -exportPath build/ \
+                   -exportOptionsPlist exportOptions.plist
+      displayName: 'Export iOS IPA'
+      
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathToPublish: 'ios/build/'
+        artifactName: 'iOS-IPA'
+      displayName: 'Publish iOS IPA' 
