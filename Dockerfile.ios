@@ -30,4 +30,4 @@ COPY . .
 EXPOSE 8081 19000
 
 # Comando por defecto
-CMD ["npm", "start"] 
+CMD ["npm", "start"]

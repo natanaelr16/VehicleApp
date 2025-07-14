@@ -11,81 +11,74 @@ export interface ImageInfo {
 }
 
 /**
+ * Función de utilidad para debuggear problemas de imágenes
+ */
+export const debugImageInfo = (imageUri: string, context: string = 'Unknown') => {
+  console.log(`🔍 [${context}] Debug Image Info:`);
+  console.log(`  - URI: ${imageUri?.substring(0, 100)}${imageUri?.length > 100 ? '...' : ''}`);
+  console.log(`  - Type: ${typeof imageUri}`);
+  console.log(`  - Length: ${imageUri?.length || 0}`);
+  console.log(`  - Starts with data:image: ${imageUri?.startsWith('data:image')}`);
+  console.log(`  - Contains /: ${imageUri?.includes('/')}`);
+  console.log(`  - Contains \\: ${imageUri?.includes('\\')}`);
+  console.log(`  - Is likely base64: ${imageUri?.length > 100 && !imageUri?.includes('/') && !imageUri?.includes('\\')}`);
+};
+
+/**
+ * Función segura para convertir imágenes a base64, manejando archivos temporales que pueden no existir
+ */
+export const safeImageToBase64 = async (imageUri: string, context: string = 'Unknown'): Promise<string> => {
+  try {
+    debugImageInfo(imageUri, context);
+    
+    // Si ya es base64, retornar directamente
+    if (imageUri.startsWith('data:image')) {
+      console.log(`${context} - Ya es base64, retornando directamente`);
+      return imageUri;
+    }
+    
+    // Si es una cadena larga sin rutas, probablemente ya es base64
+    if (imageUri.length > 100 && !imageUri.includes('/') && !imageUri.includes('\\')) {
+      console.log(`${context} - Detectado como base64 sin prefijo, agregando prefijo`);
+      return `data:image/png;base64,${imageUri}`;
+    }
+    
+    // Si es un archivo temporal que puede no existir, intentar leerlo
+    if (Platform.OS === 'android') {
+      try {
+        // Verificar si el archivo existe antes de intentar leerlo
+        const fileExists = await RNFS.exists(imageUri);
+        if (!fileExists) {
+          console.warn(`${context} - Archivo de imagen no existe:`, imageUri);
+          throw new Error('Archivo de imagen no encontrado');
+        }
+        
+        console.log(`${context} - Archivo existe, leyendo como base64...`);
+        // En Android, leer el archivo como base64
+        const base64 = await RNFS.readFile(imageUri, 'base64');
+        const result = `data:image/jpeg;base64,${base64}`;
+        console.log(`${context} - Conversión exitosa, longitud:`, result.length);
+        return result;
+      } catch (fileError) {
+        console.error(`${context} - Error leyendo archivo:`, fileError);
+        throw fileError;
+      }
+    } else {
+      // En iOS, la URI ya puede estar en el formato correcto
+      console.log(`${context} - iOS, retornando URI directamente`);
+      return imageUri;
+    }
+  } catch (error) {
+    console.error(`${context} - Error en safeImageToBase64:`, error);
+    throw error;
+  }
+};
+
+/**
  * Convierte una imagen a base64 para uso en PDFs
  */
 export const imageToBase64 = async (imageUri: string): Promise<string> => {
-  try {
-    let base64Data: string;
-    let originalFormat: string = 'jpeg';
-    
-    // Verificar si ya es una URI de data:image (común en ambos Android e iOS)
-    if (imageUri.startsWith('data:image')) {
-      // Extraer solo la parte base64 y determinar formato
-      const parts = imageUri.split(',');
-      base64Data = parts[1];
-      
-      // Extraer el formato del header
-      const header = imageUri.split(',')[0];
-      if (header.includes('image/png')) {
-        originalFormat = 'png';
-      } else if (header.includes('image/jpeg') || header.includes('image/jpg')) {
-        originalFormat = 'jpeg';
-      } else if (header.includes('image/webp')) {
-        originalFormat = 'webp';
-      }
-      
-
-    } else if (Platform.OS === 'android') {
-      // Verificar si el archivo existe antes de intentar leerlo
-      const fileExists = await RNFS.exists(imageUri);
-      if (!fileExists) {
-        console.warn('Archivo de imagen no existe:', imageUri);
-        throw new Error('Archivo de imagen no encontrado');
-      }
-      
-      // En Android, leer el archivo como base64
-      base64Data = await RNFS.readFile(imageUri, 'base64');
-
-      
-      // Determinar el formato original
-      if (imageUri.toLowerCase().includes('.png')) {
-        originalFormat = 'png';
-      } else if (imageUri.toLowerCase().includes('.jpg') || imageUri.toLowerCase().includes('.jpeg')) {
-        originalFormat = 'jpeg';
-      } else if (imageUri.toLowerCase().includes('.webp')) {
-        originalFormat = 'webp';
-      }
-      
-    } else {
-      // En iOS, leer el archivo como base64
-      const fileExists = await RNFS.exists(imageUri);
-      if (!fileExists) {
-        console.warn('Archivo de imagen no existe:', imageUri);
-        throw new Error('Archivo de imagen no encontrado');
-      }
-      base64Data = await RNFS.readFile(imageUri, 'base64');
-      
-      // Determinar el formato original
-      if (imageUri.toLowerCase().includes('.png')) {
-        originalFormat = 'png';
-      } else if (imageUri.toLowerCase().includes('.jpg') || imageUri.toLowerCase().includes('.jpeg')) {
-        originalFormat = 'jpeg';
-      } else if (imageUri.toLowerCase().includes('.webp')) {
-        originalFormat = 'webp';
-      }
-      
-
-    }
-    
-    // Para el PDF, siempre usar JPEG por mejor compatibilidad y tamaño
-    // Si la imagen original es PNG o WebP, podríamos convertirla aquí
-    // Por ahora, mantenemos el formato original pero aseguramos que sea JPEG para el PDF
-    
-    return base64Data;
-  } catch (error) {
-    console.error('Error convirtiendo imagen a base64:', error);
-    throw error; // Re-lanzar el error para que el código que llama pueda manejarlo
-  }
+  return safeImageToBase64(imageUri, 'imageToBase64');
 };
 
 /**

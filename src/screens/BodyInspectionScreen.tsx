@@ -22,9 +22,11 @@ const VEHICLE_IMAGES: Record<string, any> = {
   pickup: require('../../assets/vehicles/pickup.png'),
 };
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const isTablet = SCREEN_WIDTH >= 768;
 const IMAGE_WIDTH = SCREEN_WIDTH - 40;
 const IMAGE_HEIGHT = IMAGE_WIDTH * 0.5;
+const SCALE_FACTOR = 3;
 
 interface Point extends BodyInspectionPoint {
   observation?: string;
@@ -124,45 +126,16 @@ const BodyInspectionScreen: React.FC<BodyInspectionScreenProps> = ({ route }) =>
           console.log('Resultado de ViewShot:', result);
           console.log('Tipo de resultado:', typeof result);
           
-          // Convertir siempre a base64 para evitar problemas con archivos temporales
+          // ViewShot ya devuelve base64 cuando result: 'base64' está configurado
           if (result && typeof result === 'string') {
             if (result.startsWith('data:image')) {
-              // Ya es base64
+              // Ya es base64 con el formato correcto
               capturedImage = result;
-              console.log('Imagen ya en base64, longitud:', capturedImage.length);
-            } else if (result.startsWith('file://')) {
-              // Es una ruta de archivo, convertir a base64
-              try {
-                const RNFS = require('react-native-fs');
-                const base64 = await RNFS.readFile(result, 'base64');
-                capturedImage = `data:image/png;base64,${base64}`;
-                console.log('Imagen convertida a base64, longitud:', capturedImage.length);
-              } catch (convertError) {
-                console.error('Error convirtiendo imagen a base64:', convertError);
-                // Usar placeholder si falla la conversión
-                capturedImage = `data:image/svg+xml;base64,${btoa(`
-                  <svg width="300" height="150" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="300" height="150" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
-                    <text x="150" y="75" text-anchor="middle" fill="#666" font-size="14">ERROR</text>
-                  </svg>
-                `)}`;
-              }
+              console.log('Imagen capturada en base64, longitud:', capturedImage.length);
             } else {
-              // Otro formato, intentar convertir
-              try {
-                const RNFS = require('react-native-fs');
-                const base64 = await RNFS.readFile(result, 'base64');
-                capturedImage = `data:image/png;base64,${base64}`;
-                console.log('Imagen convertida a base64, longitud:', capturedImage.length);
-              } catch (convertError) {
-                console.error('Error convirtiendo imagen a base64:', convertError);
-                capturedImage = `data:image/svg+xml;base64,${btoa(`
-                  <svg width="300" height="150" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="300" height="150" fill="#f8f9fa" stroke="#ddd" stroke-width="2"/>
-                    <text x="150" y="75" text-anchor="middle" fill="#666" font-size="14">ERROR</text>
-                  </svg>
-                `)}`;
-              }
+              // Si no tiene el prefijo data:image, agregarlo
+              capturedImage = `data:image/png;base64,${result}`;
+              console.log('Imagen convertida a base64, longitud:', capturedImage.length);
             }
           }
           
@@ -217,14 +190,19 @@ const BodyInspectionScreen: React.FC<BodyInspectionScreenProps> = ({ route }) =>
           ref={viewShotRef}
           options={{
             format: 'png',
-            quality: 0.9,
-            width: IMAGE_WIDTH,
-            height: IMAGE_HEIGHT,
+            quality: 1,
+            width: (IMAGE_WIDTH) * SCALE_FACTOR,
+            height: (IMAGE_HEIGHT + 250) * SCALE_FACTOR,
             result: 'base64'
           }}
         >
           <View
-            style={{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT }}
+            style={{
+              width: IMAGE_WIDTH,
+              height: IMAGE_HEIGHT,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
             onStartShouldSetResponder={() => true}
             onResponderRelease={handleImagePress}
           >

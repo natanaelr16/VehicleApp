@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "Vehicle Inspection App",
+    "slug": "vehicle-inspection-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icons/icon_1024.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/innovare_logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vehicleinspection.app",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Esta app necesita acceso a la galería para seleccionar logos y marcas de agua para los reportes.",
+        "NSCameraUsageDescription": "Esta app necesita acceso a la cámara para tomar fotos durante las inspecciones."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icons/icon_1024.png",
+        "backgroundColor": "#000000"
+      },
+      "package": "com.vehicleinspection.app",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/icons/icon_1024.png"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "La app necesita acceso a tus fotos para seleccionar imágenes."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    }
+  }
+} 

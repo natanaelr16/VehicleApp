@@ -144,4 +144,57 @@ export interface ReportTemplate {
   name: string;
   items: InspectionItem[];
   isDefault: boolean;
+}
+
+// Tipos para integración con R5
+export interface R5VehicleData {
+  fechaGeneracion: string;
+  idHistorial: string;
+  vehiculo: {
+    marca: string;
+    modelo: string;
+    anio: string;
+    placa: string;
+    vin: string;
+    color: string;
+    cilindraje: string;
+    combustible: string;
+    antiguedad: string;
+    autoridad: string;
+  };
+  status: {
+    limitacionesTraspaso: string;
+    vehiculoSinAccidentes: boolean;
+    soat: Array<{
+      estado: string;
+      fechaInicio: string;
+      fechaFin: string;
+      poliza: string;
+      entidad: string;
+    }>;
+    revisionTecnomecanica: string;
+    multas: string;
+    impuestos: string;
+    medidasCautelares: Array<{
+      tipo: string;
+      estado: string;
+    }>;
+    accidentes: string;
+  };
+  historialSolicitudes: Array<{
+    estado: string;
+    fecha: string;
+    tipo: string;
+    entidad: string;
+    radicado: string;
+  }>;
+  recomendaciones: string[];
+  disclaimer: string[];
+}
+
+export interface R5Response {
+  success: boolean;
+  data?: R5VehicleData;
+  error?: string;
+  timestamp?: string;
 } 

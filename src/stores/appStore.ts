@@ -11,7 +11,8 @@ import {
   AppSettings,
   ReportTemplate,
   BodyInspection,
-  TireInspection
+  TireInspection,
+  R5VehicleData
 } from '../types';
 
 interface AppState {
@@ -21,6 +22,9 @@ interface AppState {
   settings: AppSettings;
   savedInspections: InspectionForm[];
   templates: ReportTemplate[];
+  r5Data: R5VehicleData | null;
+  r5Loading: boolean;
+  r5Error: string | null;
   
   // Acciones
   setCurrentInspection: (inspection: InspectionForm | null) => void;
@@ -48,6 +52,12 @@ interface AppState {
   updateSugerenciasDiagnostico: (sugerencias: string[]) => void;
   updatePrecioSugerido: (precio: string) => void;
   updateResultadoInspeccion: (resultado: 'approved' | 'rejected') => void;
+  
+  // Acciones R5
+  setR5Data: (data: R5VehicleData | null) => void;
+  setR5Loading: (loading: boolean) => void;
+  setR5Error: (error: string | null) => void;
+  clearR5Data: () => void;
 }
 
 const defaultSettings: AppSettings = {
@@ -92,6 +102,9 @@ export const useAppStore = create<AppState>()(
       settings: defaultSettings,
       savedInspections: [],
       templates: [defaultTemplate],
+      r5Data: null,
+      r5Loading: false,
+      r5Error: null,
 
       // Acciones
       setCurrentInspection: (inspection) => set({ currentInspection: inspection }),
@@ -204,6 +217,10 @@ export const useAppStore = create<AppState>()(
 
       updateTireInspection: (tireInspection) => {
         console.log('AppStore - updateTireInspection called with:', tireInspection);
+        console.log('AppStore - capturedImage en tireInspection:', tireInspection.capturedImage ? 'Present' : 'Missing');
+        console.log('AppStore - capturedImage length:', tireInspection.capturedImage?.length || 0);
+        console.log('AppStore - capturedImage preview:', tireInspection.capturedImage?.substring(0, 100));
+        
         const { currentInspection } = get();
         if (currentInspection) {
           const updatedInspection = {
@@ -221,6 +238,7 @@ export const useAppStore = create<AppState>()(
             const newState = get();
             console.log('AppStore - currentInspection después de updateTireInspection:', newState.currentInspection);
             console.log('AppStore - tireInspection después de updateTireInspection:', newState.currentInspection?.tireInspection);
+            console.log('AppStore - capturedImage después de updateTireInspection:', newState.currentInspection?.tireInspection?.capturedImage?.substring(0, 100));
           }, 100);
           
           console.log('AppStore - tireInspection updated successfully');
@@ -395,6 +413,12 @@ export const useAppStore = create<AppState>()(
           });
         }
       },
+
+      // Acciones R5
+      setR5Data: (data) => set({ r5Data: data }),
+      setR5Loading: (loading) => set({ r5Loading: loading }),
+      setR5Error: (error) => set({ r5Error: error }),
+      clearR5Data: () => set({ r5Data: null, r5Error: null }),
     }),
     {
       name: 'vehicle-inspection-storage',
